@@ -1,0 +1,12 @@
+/.data
+/.token
+/.token.cs
+/.vs
+/.vscode
+/Properties
+/QBort.code-workspace
+/QBort.user
+/appsettings.json
+/bin
+/logs
+/obj

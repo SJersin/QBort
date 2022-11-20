@@ -10,7 +10,6 @@ using System;
 using Serilog.Events;
 using System.IO;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 namespace QBort
 {

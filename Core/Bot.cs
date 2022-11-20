@@ -38,8 +38,9 @@ namespace QBort
             {
                 LogLevel = LogSeverity.Debug,
                 AlwaysDownloadUsers = true,
-                MessageCacheSize = 10000, // TODO find out how large the message cache size can go. Might be the reason the Close command doesn't work.
-                GatewayIntents = GatewayIntents.AllUnprivileged // Read up on GatewayIntents in documentation.
+                MessageCacheSize = 10000,
+                GatewayIntents = GatewayIntents.AllUnprivileged //GatewayIntents.GuildMessages | GatewayIntents.GuildMessageReactions | GatewayIntents.GuildMessageTyping | GatewayIntents.DirectMessages
+                // Read up on GatewayIntents in documentation.
             });
 
             _commands = new CommandService(new CommandServiceConfig
@@ -55,37 +56,41 @@ namespace QBort
 
         public async Task MainAsync()
         {
-            //--Initialize CommandManager
-            // CommandManager cmdManager = new CommandManager(Services);
-            // await cmdManager.InitializeAsync();
-
-            //--Alternative, easier way to initialize CommandManager.
-            await new CommandHandler(_services).InitializeAsync();
-            await new EventHandler(_services).InitializeAsync();
-
-            _client.Log += Client_Log;
-
-            Console.WriteLine("Checking Database...");
-            Database.CheckDatabase();
-
-            Console.WriteLine($"{DateTime.Now} => [Default Prefix Key] : Set to [+].");
             try
             {
-                await _client.LoginAsync(TokenType.Bot, Token.GetToken());
+                //--Initialize CommandManager
+                // CommandManager cmdManager = new CommandManager(Services);
+                // await cmdManager.InitializeAsync();
+    
+                //--Alternative, easier way to initialize CommandManager. Updated for async threading.
+                Task LoginTask = _client.LoginAsync(TokenType.Bot, Token.GetToken()),
+                     CmdInitTask = new CommandHandler(_services).InitializeAsync(),
+                     EventInitTask = new EventHandler(_services).InitializeAsync();
+                
+                Task[] StartingTasks = { CmdInitTask, EventInitTask,  LoginTask };
+                
+                _client.Log += Client_Log;
+    
+                Console.WriteLine("Checking Database...");
+                Database.CheckDatabase();
+    
+                Console.WriteLine($"{DateTime.Now} => [Default Prefix Key] : Set to [+].");
+                     
+                    foreach (var task in StartingTasks)
+                        await task;
+                await _client.StartAsync();
+                await Task.Delay(Timeout.Infinite); //Time for tasks to run. -1 is unlimited time. Timeout.Infinite has clearer intent.
             }
             catch (Exception e)
             {
                 Log.Error(Messages.FormatError(e));
             }
-            await _client.StartAsync();
-            await Task.Delay(Timeout.Infinite); //Time for tasks to run. -1 is unlimited time. Timeout.Infinite has clearer intent.
-
         }
 
         private Task Client_Log(LogMessage message)
         {
             //Consistancy is important I guess.
-
+#region Annoying repetative messages
             // Filter out annoying repetative messages.
             if (message.Message != "Received Dispatch (PRESENCE_UPDATE)")
                 if (message.Message != "Received Dispatch (TYPING_START)")
@@ -93,7 +98,7 @@ namespace QBort
                         if (message.Message != "Received HeartbeatAck")
                             if (message.Message != "Sent Heartbeat")
                                 Console.WriteLine($"{DateTime.Now} => [{message.Source}] : {message.Message}");
-
+#endregion
             var severity = message.Severity switch
             {
                 LogSeverity.Critical => LogEventLevel.Fatal,

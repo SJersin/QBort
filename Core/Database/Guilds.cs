@@ -57,26 +57,26 @@ namespace QBort.Core.Database
         }
         internal static int BanPlayer(ulong GuildId, ulong PlayerId, string reason)
         {
-            string query = $"UPDATE Players SET IsBanned = 1, BanReason = {reason} WHERE GuildId = {GuildId} AND PlayerId = {PlayerId}";
+            string query = $"UPDATE Players SET IsBanned = 1, BanReason = '{reason}' WHERE GuildId = '{GuildId}' AND PlayerId = '{PlayerId}'";
             return Database.ExecuteWrite(query);
         }
         internal static int UnbanPlayer(ulong GuildId, ulong PlayerId)
         {
-            string query = $"UPDATE Players SET IsBanned = 0 WHERE GuildId = {GuildId} AND PlayerId = {PlayerId}";
+            string query = $"UPDATE Players SET IsBanned = 0 WHERE GuildId = '{GuildId}' AND PlayerId = '{PlayerId}'";
             return Database.ExecuteWrite(query);
         }
         internal static int GetActivePlayerCount(ulong GuildId)
         {
-            using (var data = Database.ExecuteRead($"SELECT * From Players WHERE GuildId = {GuildId} And IsActive = 1 And IsBanned = 0"))
+            using (var data = Database.ExecuteRead($"SELECT * From Players WHERE GuildId = '{GuildId}' And IsActive = 1 And IsBanned = 0"))
                 return data.Rows.Count;
         }
-        internal static DataTable ActivePlayersList(ulong GuildId)
+        internal static DataTable GetActivePlayersList(ulong GuildId)
         {
-            return Database.ExecuteRead($"SELECT * From Players WHERE GuildId = {GuildId} And IsActive = 1 And IsBanned = 0 ORDER BY PlayCount ASC");
+            return Database.ExecuteRead($"SELECT * From Players WHERE GuildId = '{GuildId}' And IsActive = 1 And IsBanned = 0 ORDER BY PlayCount ASC");
         }
-        internal static DataTable AllPlayersList(ulong GuildId)
+        internal static DataTable GetAllPlayersList(ulong GuildId)
         {
-            return Database.ExecuteRead($"SELECT * From Players WHERE GuildId = {GuildId}");
+            return Database.ExecuteRead($"SELECT * From Players WHERE GuildId = '{GuildId}'");
         }
         internal static bool GuildExists(ulong GuildId)
         {
@@ -88,7 +88,7 @@ namespace QBort.Core.Database
         }
         internal static int SetRole(ulong GuildId, string set)
         {
-            string query = $"UPDATE GuildSettings Set Role = '{set}' WHERE GuildId = {GuildId}";
+            string query = $"UPDATE GuildSettings Set Role = '{set}' WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static int ChangeLobbyStatus(ulong GuildId)
@@ -101,22 +101,22 @@ namespace QBort.Core.Database
                 set = 0;
             else
                 set = 1;
-            string query = $"UPDATE Guilds Set IsOpen = {set.ToString()} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guilds Set IsOpen = {set.ToString()} WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static DataTable GetGuildSettings(ulong GuildId)
         {
-            string query = $"SELECT * FROM GuildSettings WHERE GuildId = {GuildId}";
+            string query = $"SELECT * FROM GuildSettings WHERE GuildId = '{GuildId}'";
             return Database.ExecuteRead(query);
         }
         internal static int CheckForGuild(ulong GuildId)
         {
-            string query = $"Select * from Guilds where GuildId = {GuildId}";
+            string query = $"Select * from Guilds where GuildId = '{GuildId}'";
             return Database.ExecuteRead(query).Rows.Count;
         }
         internal static int ClearPlayCounts(ulong GuildId)
         {
-            string query = $"UPDATE Players Set PlayCount = 0 WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Players Set PlayCount = 0 WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static int GetGroupSize(ulong GuildId)
@@ -185,7 +185,7 @@ namespace QBort.Core.Database
         {
             try
             {
-                var dt = Database.ExecuteRead("SELECT QueMsgId From Guilds WHERE GuildId = " + GuildId);
+                var dt = Database.ExecuteRead("SELECT QueMsgId From GuildSettings WHERE GuildId = " + GuildId);
                 ulong results = Convert.ToUInt64(dt.Rows[0]["QueMsgId"]);
                 return results;
             }
@@ -259,36 +259,37 @@ namespace QBort.Core.Database
         }
         internal static int SetQueueMessageId(ulong GuildId, string set)
         {
-            string query = $"UPDATE GuildSettings Set QueMsgId = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE GuildSettings Set QueMsgId = '{set}' WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static int SetPullMessageId(ulong GuildId, ulong set)
         {
-            string query = $"UPDATE GuildSettings Set PullMsgId = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE GuildSettings Set PullMsgId = '{set}' WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static int SetPullMessageRoom(ulong GuildId, ulong set)
         {
-            string query = $"UPDATE GuildSettings Set PullMsgRoom = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE GuildSettings Set PullMsgRoom = '{set}' WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static int SetQueueMessageRoom(ulong GuildId, ulong set)
         {
-            string query = $"UPDATE GuildSettings Set QueMsgRoom = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE GuildSettings Set QueMsgRoom = '{set}' WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static int SetRecallGroup(ulong GuildId, ulong[] list)
         {
             string group = string.Empty;
             foreach (var PlayerId in list)
-                group += string.Concat(PlayerId, ',');
-            group.Remove(group.LastIndexOf(','));
-            string query = $"UPDATE Guilds Set RecallGroup = '{group}' WHERE GuildId = {GuildId}";
+                group = string.Concat(group, PlayerId, ',');
+                if (group.EndsWith(','))
+                    group = group.Remove(group.LastIndexOf(','));
+            string query = $"UPDATE Guilds Set RecallGroup = '{group}' WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static int SetReaction(ulong GuildId, string set)
         {
-            string query = $"UPDATE GuildSettings Set Reaction = '{set}' WHERE GuildId = {GuildId}";
+            string query = $"UPDATE GuildSettings Set Reaction = '{set}' WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
     }

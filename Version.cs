@@ -4,11 +4,13 @@
  *
  */
 
+using System.Collections.Generic;
+
 namespace QBort
 {
     public class Version
     {
-        public const string GetVersion  = "0.10.2";
+        public const string CurrentVersion = "0.10.2";
     }
 
 }

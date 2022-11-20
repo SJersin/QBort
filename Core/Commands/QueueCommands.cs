@@ -1,15 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
-using System.Threading.Tasks;
-using QBort.Core.Database;
-using System.Data;
 using Discord.WebSocket;
+using QBort.Core.Database;
+using QBort.Core.Structures;
 
 
 /*
-    The Rebirth into Q-Bort!
+    The Rebirth into QBort!
  */
 
 namespace QBort.Core.Commands
@@ -18,8 +19,8 @@ namespace QBort.Core.Commands
     {
         private ulong GuildId;
         private EmbedBuilder _embed;
-        private SocketGuildUser _leader;
         private EmbedFieldBuilder _field;
+        private SocketGuildUser _leader;
 
         /// See about creating temporary channels for use instead of having to create bot specific rooms
         /// can be expanded to include voice channels. Can make this very vancy.
@@ -30,25 +31,36 @@ namespace QBort.Core.Commands
         public async Task OpenQueue(IRole role, [Remainder] string message = "")
         {
             GuildId = Context.Guild.Id;
-            await Context.Channel.TriggerTypingAsync();
-            // Timer timer = new Timer(120000); // Timer for auto-posting list embed
+            _ = Context.Channel.TriggerTypingAsync();
             try
             {
                 if (Context.Channel.Id != Guild.GetQueueMessageRoom(Context.Guild.Id))
-                { await Context.Channel.SendMessageAsync(Messages.WrongChannelWarning); return; }
+                { await Context.Channel.SendMessageAsync(embed: Messages.WrongChannelWarning.Build()); return; }
                 if (Guild.GetLobbyStatus(GuildId))
                 {
-                    await Context.Channel.SendMessageAsync(Messages.LobbyIsOpen); return;
+                    await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsOpen.Build()); return;
                 }
-                _embed = new EmbedBuilder();
-                _field = new EmbedFieldBuilder();
+                try
+                {
+                    Guild.ChangeLobbyStatus(GuildId);
+                }
+                catch (Exception e)
+                {
+                    Log.Error(Messages.FormatError(e));
+                    await Context.Channel.SendMessageAsync("Couldn't open server queue.");
+                    return;
+                }
 
                 // Create message with reaction for queue 
-                _embed.WithColor(Color.DarkGreen)
-                    .WithTitle($"The queue is now open! React to this message to register for the queue.")
-                    .WithTimestamp(DateTime.Now);
-                _field.WithName("Click or Tap on the reaction to join queue.")
-                    .WithValue("Remember to be respectful towards other people and follow the rules that have been established by the community!");
+                _embed = new EmbedBuilder()
+                      .WithColor(Color.DarkGreen)
+                      .WithTitle($"The queue is now open! React to this message to register for the queue.")
+                      .WithTimestamp(DateTime.Now);
+
+                _field = new EmbedFieldBuilder()
+                      .WithName("Click or Tap on the reaction to join queue.")
+                      .WithValue("Remember to be respectful towards other people and follow the rules that have been established by the community!");
+
                 _embed.AddField(_field);
                 string gem; // Guild EMote 
                 // Start checks
@@ -57,13 +69,10 @@ namespace QBort.Core.Commands
                     Context.Channel.SendMessageAsync(embed: _embed.Build());
 
                 using (var dt = Guild.GetGuildSettings(GuildId))
-                {
                     gem = dt.Rows[0]["Reaction"].ToString();
-                }
 
-                //Something to do with sending a message in a specified channel
 
-                var ReactionMessage = await SendEmbedTask;    // Sends the embed for people to react to.
+                var ReactionMessage = await SendEmbedTask;    // Sends the embed for people to react to and stores the message.
                 try
                 {
                     Guild.SetQueueMessageId(GuildId, Convert.ToString(ReactionMessage.Id));
@@ -87,15 +96,6 @@ namespace QBort.Core.Commands
                 Log.Error(Messages.FormatError(e));
                 await Context.Channel.SendMessageAsync("Queue did not open properly.");
             }
-            try
-            {
-                Guild.ChangeLobbyStatus(GuildId);
-            }
-            catch (Exception e)
-            {
-                Log.Error(Messages.FormatError(e));
-                await Context.Channel.SendMessageAsync("Couldn't change guild status.");
-            }
         }
 
         [Command("close")]
@@ -104,73 +104,60 @@ namespace QBort.Core.Commands
         public async Task CloseQueue()
         {
             GuildId = Context.Guild.Id;
-            // order this should close things:
-            // Delete queue message
-            // Set everyone to inactive
-            // Send thank you embed
 
             try
             {
-                if (!Guild.GetLobbyStatus(GuildId))
-                { await Context.Channel.SendMessageAsync(Messages.LobbyIsClosed); return; }
-                if (Context.Channel.Id != Guild.GetQueueMessageRoom(Context.Guild.Id))
-                { await Context.Channel.SendMessageAsync(Messages.WrongChannelWarning); return; }
+                // Lobby is closed
+                if (!Guild.GetLobbyStatus(GuildId)) { await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return; }
+                // Wrong channel
+                if (Context.Channel.Id != Guild.GetQueueMessageRoom(Context.Guild.Id)) { await Context.Channel.SendMessageAsync(embed: Messages.WrongChannelWarning.Build()); return; }
 
                 if (Guild.ChangeLobbyStatus(GuildId) == 1)
                 {
-                    List<string> problems = new List<string>();
-                    var embed = new EmbedBuilder().WithTitle("The customs queue has been closed!")
+                    Task<IMessage>[] _deletemetasks = { 
+                            Context.Channel.GetMessageAsync(Guild.GetPullMessageId(GuildId)), //DeletePullMessageTask, 
+                            Context.Channel.GetMessageAsync(Guild.GetQueueMessageId(GuildId)) }; //DeleteQueueMessageTask };
+                    List<IMessage> _deletethese = new();
+                    List<string> problems = new();
+
+                    _embed = new EmbedBuilder().WithTitle("The customs queue has been closed!")
                         .WithColor(Color.DarkRed)
                         .WithDescription("Thank you everyone who joined in today's session!!").WithCurrentTimestamp();
                     var SendEmbedTask =
-                        Context.Channel.SendMessageAsync(embed: embed.Build());
-                    // Check to make sure that the reference is to both the proper channel and message ids.
-                    
-                    Task DeletePullMessageTask;
-                    try
-                    {
-                        DeletePullMessageTask =
-                            Context.Channel.GetCachedMessage(Guild.GetPullMessageId(GuildId)).DeleteAsync();
-                    }
-                    catch
-                    {
-                        DeletePullMessageTask = Task.CompletedTask;
-                    }
-                    try
-                    {
-                        using (var player = Guild.AllPlayersList(GuildId))
-                            foreach (DataRow i in player.Rows)
-                                if (Player.ResetPlayStats(GuildId, Convert.ToUInt64(i["PlayerId"])) != 1)
-                                    problems.Add(i["PlayerId"].ToString());
+                        Context.Channel.SendMessageAsync(embed: _embed.Build());
 
-                        Guild.ClearPlayCounts(GuildId);
-                        string ohno = $"There are {problems.Count} problems logged. They are:";
+                    using (var player = Guild.GetAllPlayersList(GuildId))
+                        foreach (DataRow i in player.Rows)
+                            if (Player.ResetPlayStats(GuildId, Convert.ToUInt64(i["PlayerId"])) != 1)
+                                problems.Add(string.Concat("Player Id: ", i["PlayerId"].ToString(), "\nCould not reset player stats."));
 
+                    Guild.ClearPlayCounts(GuildId);
+                    if (problems.Count > 0)
+                    {
+                        string ohno = $"There were {problems.Count} problems logged while closing {Context.Guild.Name}'s queue. They are:";
                         foreach (var problem in problems)
-                            ohno += $"\n{problem}";
-
-                        Log.Error(ohno);
+                            ohno = string.Concat(ohno, $"\n\t{problem}");
+                        Log.Warning(ohno);
                     }
-                    catch (Exception e)
-                    {
-                        Log.Error(Messages.FormatError(e) + "\n ^-v-^-v-^- Line 141 -^-v-^-v-^");
-                    }
-
+                    Guild.SetPullMessageId(GuildId, 0);
                     try
                     {
-                        Guild.SetPullMessageId(GuildId, 0);
+                        foreach (var item in _deletemetasks)
+                        {
+                            _deletethese.Add(await item);
+                        }
+
+                        foreach (var msg in _deletethese)
+                            await msg.DeleteAsync();
                         await SendEmbedTask;
-                        await DeletePullMessageTask;
                     }
                     catch (Exception e)
                     {
-                        Log.Error(Messages.FormatError(e) + "\n ^-v-^-v-^- Line 159 -^-v-^-v-^");
+                        Log.Error(Messages.FormatError(e));
                     }
                 }
                 else
-                {
-                    await Context.Channel.SendMessageAsync(Messages.LobbyIsClosed);
-                }
+                    await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build());
             }
             catch (Exception e)
             {
@@ -179,7 +166,7 @@ namespace QBort.Core.Commands
         }
 
         [Command("list")]
-        [Summary(": Provides the list of everyone in the queue database.")]
+        [Summary(": Provides the list of everyone that is currently active in an open queue.")]
         [RequireUserPermission(GuildPermission.ManageChannels)]
         public async Task ShowQueueList()
         {
@@ -189,37 +176,33 @@ namespace QBort.Core.Commands
             _embed = new EmbedBuilder();
             if (!Guild.GetLobbyStatus(GuildId))
             {
-                await Context.Channel.SendMessageAsync(embed:
-                        _embed.WithTitle("Oops!").WithDescription(Messages.LobbyIsClosed).Build());
+                await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build());
                 return;
             }
 
-            string gem = Guild.GetReaction(GuildId);
-            string list = string.Empty;
+            string gem = Guild.GetReaction(GuildId),
+                   NameList = string.Empty,
+                   GameCountList = string.Empty;
 
-            using (var PlayersToList = Guild.ActivePlayersList(GuildId))
+            using (var PlayersToList = Guild.GetActivePlayersList(GuildId))
             {
                 int activePlayers = PlayersToList.Rows.Count;
                 foreach (DataRow p in PlayersToList.Rows)
-                    list += Context.Guild.GetUser(Convert.ToUInt64(p["PlayerId"])).DisplayName + ": " + Convert.ToString(p["PlayCount"]) + " | ";
+                    NameList += Context.Guild.GetUser(Convert.ToUInt64(p["PlayerId"])).DisplayName + ": " + Convert.ToString(p["PlayCount"]) + " | ";
             }
-            list = list.Remove(list.LastIndexOf('|') - 1);
+            NameList = NameList.Remove(NameList.LastIndexOf('|') - 1);
 
-            _field = new EmbedFieldBuilder().WithName("Active users: ").WithValue(list);
+            _field = new EmbedFieldBuilder().WithName("Active users: ").WithValue(NameList);
 
             try
             {
                 int activePlayers = Guild.GetActivePlayerCount(GuildId);
                 if (activePlayers > 0)
-                {
                     _embed.WithTitle($"There are {activePlayers} players in the list")
-                       .WithCurrentTimestamp();
-                    _embed.AddField(_field);
-                }
+                       .WithCurrentTimestamp().AddField(_field);
                 else
-                {
-                    _embed.WithTitle("The q-υωυ-e is Empty.").WithDescription("{QueueBot} is sad!");
-                }
+                    _embed.WithTitle("The q-υωυ-e is Empty.").WithDescription("This makes QBort sad... :(");
+
                 await Context.Channel.SendMessageAsync(embed: _embed.Build());
             }
             catch (Exception e) // Something bad has happened.
@@ -237,7 +220,7 @@ namespace QBort.Core.Commands
         public async Task NewGroup(string arg = null, [Remainder] string password = null)
         {
             GuildId = Context.Guild.Id;
-            List<Player> PlayerList = new List<Player>();
+            List<Player> PlayerList = new();
             int GroupSize = 0, GuildMaxGroupSize = 0;
 
             var typing =
@@ -246,9 +229,9 @@ namespace QBort.Core.Commands
             #region Start checks
 
             if (!Guild.GetLobbyStatus(GuildId))
-            { await Context.Channel.SendMessageAsync(Messages.LobbyIsClosed); return; }
+            { await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return; }
             if (Context.Channel.Id != Guild.GetPullMessageRoom(GuildId))
-            { await Context.Channel.SendMessageAsync(Messages.WrongChannelWarning); return; }
+            { await Context.Channel.SendMessageAsync(embed: Messages.WrongChannelWarning.Build()); return; }
 
             // Check for first argument: Is it a different group size number or just a password?
 
@@ -283,7 +266,7 @@ namespace QBort.Core.Commands
             }
             #endregion
 
-            using (var ActiveList = Guild.ActivePlayersList(GuildId))
+            using (var ActiveList = Guild.GetActivePlayersList(GuildId))
                 foreach (DataRow player in ActiveList.Rows)
                     PlayerList.Add(new Player(Convert.ToUInt64(player["PlayerId"]), Convert.ToInt16(player["PlayCount"])));
 
@@ -297,7 +280,7 @@ namespace QBort.Core.Commands
             if (PlayerList.Count < GroupSize)
             {
                 GroupSize = PlayerList.Count;
-                await Context.Channel.SendMessageAsync(Messages.LowActivePlayerWarning);
+                await Context.Channel.SendMessageAsync(embed: Messages.LowActivePlayerWarning.Build());
             }
 
             var random = new Random();
@@ -329,7 +312,6 @@ namespace QBort.Core.Commands
                 ulong x;
                 while (GroupSize > 0)
                 {
-
                     // If the count of the list of players with the lowest play count, just throw them all in.
                     if (PlayerList.FindAll(p => p.PlayCount == PlayerList[0].PlayCount).Count <= GroupSize)
                     {
@@ -365,9 +347,7 @@ namespace QBort.Core.Commands
                     }
                     catch (Exception e)
                     {
-                        await Context.Channel.SendMessageAsync(Context.Guild.GetUser(r).DisplayName + " - foreach recall catch.");
-                        Console.WriteLine("346 Line Damnit");
-                        Log.Error(Messages.FormatError(e)); continue;
+                        Log.Error(Context.Guild.GetUser(r).DisplayName + " - foreach recall catch.\n" + Messages.FormatError(e)); continue;
                     }
                 }
             }
@@ -376,13 +356,13 @@ namespace QBort.Core.Commands
                 Log.Error(Messages.FormatError(e));
                 // continue;
             }
+
             foreach (ulong user in recall)
                 Player.IncreasePlayCount(GuildId, user);
 
             // 2-Column List starts here.
 
             string grouplist = string.Empty;
-
 
             try
             {
@@ -397,11 +377,11 @@ namespace QBort.Core.Commands
                 // If the last entry doesn't have a newline break, add it in so it doesn't look stupid.
                 if (!grouplist.EndsWith('\n')) grouplist += "\n";
 
-                grouplist += _leader.DisplayName + " - Kami"; //TODO Adapt for the use of a "constant" player. Add field to Guild table?
+                grouplist += _leader.DisplayName + " - Kami"; //TODO Adapt for the use of a "constant" player. Add _field to Guild table?
 
-                EmbedFieldBuilder field = new EmbedFieldBuilder().WithName("Next up is:")
+                _field = new EmbedFieldBuilder().WithName("Next up is:")
                     .WithValue(grouplist).WithIsInline(true);
-                _embed.AddField(field);
+                _embed.AddField(_field);
                 var SendEmbedTask = Context.Channel.SendMessageAsync(mentions, embed: _embed.Build());
 
                 // Start calling all of our awaited tasks.
@@ -410,7 +390,7 @@ namespace QBort.Core.Commands
                 var Messagae = await SendEmbedTask;
 
                 Guild.SetRecallGroup(GuildId, recall.ToArray());
-                Guild.SetPullMessageId(GuildId, Messagae.Id); // Use this for storing called games message id to delete later. Also, I'm aware of the typo. It's been with this project since creation. It has tenure.
+                Guild.SetPullMessageId(GuildId, Messagae.Id); // Use this for storing called games' message id to delete later. Also, I'm aware of the typo. It's been with this project since creation. It has tenure.
                 await Context.Message.DeleteAsync();
             }
             catch (Exception e)
@@ -427,7 +407,7 @@ namespace QBort.Core.Commands
             GuildId = Context.Guild.Id;
             if (!Guild.GetLobbyStatus(GuildId))
             {
-                await Context.Channel.SendMessageAsync(Messages.LobbyIsClosed);
+                await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build());
                 return;
             }
             string recall = Guild.RecallGroup(GuildId);
@@ -446,7 +426,8 @@ namespace QBort.Core.Commands
                     {
                         Log.Error(Messages.FormatError(e));
                     }
-                mentions += $"\n\n{msg}";
+                if (msg != "")
+                    mentions += $"\n\n{msg}";
             }
 
             try
@@ -462,126 +443,124 @@ namespace QBort.Core.Commands
         [Command("replace")] // TODO FIXME LIKE YESTERDAY!!!
         [Summary(": Calls a new player to replace one that is unable to participate after they have been called. Used by passing @mentions\nEx: `replace @Johnny @May`")]
         [RequireUserPermission(GuildPermission.ManageChannels)]
-        public async Task ReplacePlayer([Remainder] string original = "")
+        public async Task ReplacePlayer([Remainder] string mentions = "")
         {
-            await Context.Channel.SendMessageAsync("This command is closed due to renovations.");
-            return;
+            // await Context.Channel.SendMessageAsync("This command is closed due to renovations.");
+            // return;
 
-        // Fix this code and remove the temp message above.
+            // Fix this code and remove the temp message above.
             try
             {
-                List<ulong> UsersToReplace = new List<ulong>();
-                List<Player> Replacements = new List<Player>();
-                int count = Context.Message.MentionedUsers.Count;
+                List<ulong>  UsersToReplace = new(),
+                             NewRecallList = new();   //.ConvertAll(new Converter<string, ulong>(Convert.ToUInt64)).ToArray();
+                List<Player> ReplacementPlayersList = new(),
+                             ReplacementPlayers = new(),
+                             ActivePlayerList = new();
+                int ReplacementCount = Context.Message.MentionedUsers.Count;
                 GuildId = Context.Guild.Id;
 
-                if (count < 1) // No mentions passed; no one to replace.
+                if (ReplacementCount < 1) // No mentions passed; no one to replace.
                     return;
                 else
-                    foreach (var oldgroup in Context.Message.MentionedUsers)
-                        UsersToReplace.Add(oldgroup.Id); // get users to replace
+                    foreach (var _utr in Context.Message.MentionedUsers)
+                        UsersToReplace.Add(_utr.Id); // get users to replace
 
-                // get active players
-                var ActivePlayerTable = Guild.ActivePlayersList(GuildId);
-
-                // pull old recall list
-                var RecallGroup = Guild.RecallGroup(GuildId).Split(',');
-                List<string> RecallList = new List<string>();
-                foreach (string y in RecallGroup)
-                    RecallList.Add(y);
-
-                foreach (var y in UsersToReplace)
-                    RecallList.Remove(Convert.ToString(y));
-
-                List<Player> ActivePlayerList = new List<Player>();
-
-                foreach (DataRow n in ActivePlayerTable.Rows) // Convert the table to a usable player list
-                    try
-                    {
-                        ActivePlayerList.Add(new Player(Convert.ToUInt64(n["PlayerId"]), Convert.ToInt32(n["PlayCount"])));
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Error(Messages.FormatError(e));
-                    }
-                ActivePlayerTable.Dispose();
-
-                foreach (var user in RecallList) // remove users from the player list that are in the queue recall list.
-                    try
-                    {
-                        if (!string.IsNullOrWhiteSpace(user))
-                            ActivePlayerList.Remove(ActivePlayerList.Find(p => p.PlayerId == Convert.ToUInt64(user.Trim())));
-                    }
-                    catch (Exception e)
-                    {
-                        Log.Error(Messages.FormatError(e));
-                    }
-                Player x;
-                // GET THE NEW USERS
-                if (UsersToReplace.Count > 0)
-                    foreach (var o in UsersToReplace)
-                    {
-                        Random random = new Random();
-                        int index = random.Next(0, ActivePlayerList.FindAll(p => p.PlayCount == ActivePlayerList[0].PlayCount).Count);
-                        if (ActivePlayerList.Count > 0)
-                        {
-                            x = ActivePlayerList[index];
-                            Replacements.Add(x);
-                            RecallList.Add(x.PlayerId.ToString());
-                            ActivePlayerList.Remove(x);
-                            Player.IncreasePlayCount(GuildId, x.PlayerId);
-                        }
-                        else
-                        {
-                            await Context.Channel.SendMessageAsync("No suitable replacement players found.");
-                            return;
-                        }
-                    }
-
-                string msg = string.Empty;
-                if (count == 1) // Only one user to replace
+                //TODO Add logic for setting replaced players inactive
+                // get active players list
+                using (var ActivePlayerListTable = Guild.GetActivePlayersList(Context.Guild.Id))
                 {
-                    msg += Context.Guild.GetUser(UsersToReplace[0]).Mention + " ";
-                    Player.DecreasePlayCount(GuildId, Context.Guild.GetUser(UsersToReplace[0]).Id);
+                    if (ActivePlayerListTable.Rows.Count < 1)
+                    { await Context.Channel.SendMessageAsync("No suitable replacement players found."); return; }
+
+                    // check count of active players against to_replace count (mentioned users)
+                    // More users than we can actively replace.
+                    if (ReplacementCount > ActivePlayerListTable.Rows.Count)
+                    {
+                        await Context.Channel.SendMessageAsync("There are not enough players to replace everyone."); return;
+                    }
+                    else if (ReplacementCount <= ActivePlayerListTable.Rows.Count)
+                    {
+                        foreach (DataRow player in ActivePlayerListTable.Rows)
+                            ReplacementPlayersList.Add(new Player(ulong.Parse(player["PlayerId"].ToString()), int.Parse(player["PlayCount"].ToString())));
+
+                        // Remove the users being replaced from the list
+                        foreach (var utr in UsersToReplace)
+                            ReplacementPlayersList.Remove(ReplacementPlayersList.Find(x => x.PlayerId == utr));
+
+                        // We have enough users to fill, so lets fill.
+                        if (ReplacementCount < ReplacementPlayersList.Count)
+                        {
+                            var rand = new Random();
+                            foreach (var user in UsersToReplace)
+                            {
+                                int i = rand.Next(ReplacementPlayersList.Count);
+                                ReplacementPlayers.Add(ReplacementPlayersList[i]);
+                                ReplacementPlayersList.RemoveAt(i);
+                            }
+                        }
+                        else // We have just enough users, so simplify the logic.
+                            ReplacementPlayers = ReplacementPlayersList;
+                    }
+                }
+
+                string MentionString = string.Empty,
+                       BeingReplaced = string.Empty,
+                       IsReplacement = string.Empty;
+                if (ReplacementCount == 1) // Only one user to replace
+                {
+                    var _user = Context.Guild.GetUser(UsersToReplace[0]);
+                    MentionString = string.Concat(_user.Mention, " ");
+                    BeingReplaced = string.Concat(_user.DisplayName, "\n");
+                    Player.DecreasePlayCount(GuildId, _user.Id);
                 }
                 else // More than one user to replace
-                    foreach (var o in UsersToReplace)
+                    foreach (var utr in UsersToReplace)
                     {
-                        msg += Context.Guild.GetUser(o).Mention + " ";
-                        Player.DecreasePlayCount(GuildId, o);
+                        var _user = Context.Guild.GetUser(utr);
+                        MentionString = string.Concat(MentionString, _user.Mention, " ");
+                        BeingReplaced = string.Concat(BeingReplaced, _user.DisplayName, "\n");
+                        Player.DecreasePlayCount(GuildId, _user.Id);
                     }
 
-                msg += " is being replaced with";
-                await Context.Channel.SendMessageAsync("Recalled List? " + RecallList[0].Trim());
+                MentionString = string.Concat(MentionString, "is being replaced with ");
 
-                if (count == 1)
+                try
                 {
-                    msg += " " + Context.Guild.GetUser(Convert.ToUInt64(RecallList[0].Trim())).Mention + " ";
-                }
-                else
-                {
-                    foreach (var u in Replacements)
+                    foreach (var player in ReplacementPlayers)
                     {
-                        msg += " " + Context.Guild.GetUser(u.PlayerId).Mention + ",";
+                        var _user = Context.Guild.GetUser(player.PlayerId);
+                        MentionString = string.Concat(MentionString, _user.Mention, " ");
+                        IsReplacement = string.Concat(IsReplacement, _user.DisplayName, "\n");
+                        NewRecallList.Add(_user.Id);
+                        Player.IncreasePlayCount(GuildId, _user.Id);
                     }
-                    msg.Remove(msg.Length - 1);
-                    msg += " ";
                 }
-                msg += "in **" + Context.User.Username + "**'s lobby!\n The updated player list is:\n";
-                string recall = string.Empty;
-
-                foreach (var p in RecallList)
+                catch (Exception e)
                 {
-                    msg += $" {Context.Guild.GetUser(Convert.ToUInt64(p)).DisplayName} |";
+                    Log.Error(Messages.FormatError(e));
                 }
-                msg.Remove(msg.LastIndexOf('|'));
-                // msg += "."; 
-                List<ulong> list = new List<ulong>();
-                foreach (string id in RecallList)
-                    list.Add(Convert.ToUInt64(id));
 
-                Guild.SetRecallGroup(GuildId, list.ToArray());
-                await Context.Channel.SendMessageAsync(msg);
+                _embed = new EmbedBuilder()
+                      .WithTitle($"**{Context.User.Username}** Roster Rotation!")
+                      .WithDescription("Pay attention to the changes listed!!");
+
+                _field = new EmbedFieldBuilder().WithName("Players sitting out:")
+                      .WithValue(string.IsNullOrEmpty(BeingReplaced) ? "No one it seems..." : BeingReplaced);
+                _embed.AddField(_field);
+
+                _field = new EmbedFieldBuilder().WithName("Players now in the play group:")
+                      .WithValue(string.IsNullOrEmpty(IsReplacement) ? "No one it seems..." : IsReplacement);
+                _embed.AddField(_field);
+
+                try
+                {
+                    Guild.SetRecallGroup(GuildId, NewRecallList.ToArray());
+                    await Context.Channel.SendMessageAsync(MentionString, embed: _embed.Build());
+                }
+                catch (Exception e)
+                {
+                    Log.Error(Messages.FormatError(e));
+                }
             }
             catch (Exception e)
             {
@@ -593,6 +572,8 @@ namespace QBort.Core.Commands
         [Summary(": Not yet implemented.")]
         public async Task SwapPlayer([Remainder] string players = "")
         {
+            _embed = new();
+            _field = new();
             await Context.Channel.SendMessageAsync("Don't be impatient.");
         }
 
@@ -639,7 +620,7 @@ namespace QBort.Core.Commands
                     maps.Add(MapList.List[number]);
                 }
 
-                List<EmbedFieldBuilder> voteFields = new List<EmbedFieldBuilder>();
+                List<EmbedFieldBuilder> vote_fields = new List<EmbedFieldBuilder>();
 
                 for (int i = 0; i < Config.bot.NumberOfVotes; i++)
                 {
@@ -648,14 +629,14 @@ namespace QBort.Core.Commands
                         .WithValue($"`Map {i + 1}`")
                         .WithIsInline(true);
 
-                    voteFields.Add(votes);
+                    vote_fields.Add(votes);
                 }
 
-                foreach (EmbedFieldBuilder field in voteFields)
-                    voteEmbed.AddField(field);
+                foreach (EmbedFieldBuilder _field in vote_fields)
+                    vote_embed.AddField(_field);
 
-                //// Log.Information("MAP VOTE => Building and sending Embed.");
-                Caches.Messages.MapVoteMessage = await Context.Channel.SendMessageAsync(embed: voteEmbed.Build());
+                //// Log.Information("MAP VOTE => Building and sending _embed.");
+                Caches.Messages.MapVoteMessage = await Context.Channel.SendMessageAsync(embed: vote_embed.Build());
                 //// Log.Information("MAP VOTE => Embed successfully sent.");
                 await Caches.Messages.MapVoteMessage.AddReactionAsync(one);
                 await Caches.Messages.MapVoteMessage.AddReactionAsync(two);
@@ -678,9 +659,9 @@ namespace QBort.Core.Commands
                     .WithTitle($"{MapList.List[index]}")
                     .WithDescription("The spirits have spoken.").WithColor(Color.Blue);
 
-                List<EmbedFieldBuilder> voteFields = new List<EmbedFieldBuilder>();
+                List<EmbedFieldBuilder> vote_fields = new List<EmbedFieldBuilder>();
 
-                Caches.Messages.MapVoteMessage = await Context.Channel.SendMessageAsync(embed: voteEmbed.Build());
+                Caches.Messages.MapVoteMessage = await Context.Channel.SendMessageAsync(embed: vote_embed.Build());
 
             }
 
@@ -691,23 +672,23 @@ namespace QBort.Core.Commands
             // Timer timer = new Timer(120000); // Timer for auto-posting list embed
 
             // Start checks
-            var embed = new EmbedBuilder();
-            var field = new EmbedFieldBuilder();
+            _embed = new EmbedBuilder();
+            _field = new EmbedFieldBuilder();
 
             // Create message with reaction for queue
             //TODO Reword most of this. 
-            embed.WithColor(Color.DarkGreen)
+            _embed.WithColor(Color.DarkGreen)
                 .WithTitle($"This is the react message for people to 'register' for the queue for the guild the message is in.")
                 .WithTimestamp(DateTime.Now);
 
             //
-            field.WithName("Click or Tap on the reaction to join queue.")
+            _field.WithName("Click or Tap on the reaction to join queue.")
                 .WithValue("Basic rules and stuff that users should abide by go here. This");
 
             //Something to do with sending a message in a specified channel
             var chan = Context.Guild.GetChannel(Guild.GetQueueMessageRoom(GuildId));
-            embed.AddField(field);
-            var ReactionMessage = await Context.Channel.SendMessageAsync(embed: embed.Build());    // Sends the embed for people to react to.
+            _embed.AddField(_field);
+            var ReactionMessage = await Context.Channel.SendMessageAsync(embed: _embed.Build());    // Sends the embed for people to react to.
 
             Guild.SetQueueMessageId(GuildId, ReactionMessage.Id.ToString());
             if (Emote.TryParse(Guild.GetReaction(GuildId), out Emote emote))

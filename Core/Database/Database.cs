@@ -27,11 +27,13 @@ namespace QBort.Core.Database
 {
     internal class Database
     {
+#region     Properties
         private static string DatabaseFile = ".data/qbort.db";
         private static string ConnectionString = "DataSource=" + DatabaseFile;
         private static SQLiteCommand cmd;
         private static SQLiteConnection con;
-
+#endregion
+#region     Database Writing
         internal static int ExecuteWrite(string query, Dictionary<string, object> args)
         {
             int numberOfRowsAffected;
@@ -62,7 +64,6 @@ namespace QBort.Core.Database
                 }
             }
         }
-
         internal static int ExecuteWrite(string query)
         {
             int numberOfRowsAffected;
@@ -81,6 +82,14 @@ namespace QBort.Core.Database
                 return numberOfRowsAffected;
             }
         }
+#endregion
+#region     Database Reading
+        /** <summary>
+            Processes a query designed to extract data from the database.
+            </summary>
+            <param name="query">The<pararef="string">containing the query for the database.
+            <returns> A<paramref="DataTable" />with the query results, or<paramref="null" />if nothing is found.
+        */
         internal static DataTable ExecuteRead(string query)
         {
             if (string.IsNullOrEmpty(query.Trim()))
@@ -93,10 +102,9 @@ namespace QBort.Core.Database
                 {
                     try
                     {
-                        var da = new SQLiteDataAdapter(cmd);
                         var table = new DataTable();
-                        da.Fill(table);
-                        da.Dispose();
+                        using (var da = new SQLiteDataAdapter(cmd))
+                            da.Fill(table);
                         con.Close();
                         return table;
                     }
@@ -108,14 +116,15 @@ namespace QBort.Core.Database
                 }
             }
         }
-        // Check Database and Create Database methods.
+#endregion
+#region     Check Database and Create Database methods.
         private static void CreateDatabase()
         {
-            Console.WriteLine("Attempting to creaste guilds table.");
+            Log.Information("Attempting to creaste guilds table.");
             Tables.CreateGuildsTable();
-            Console.WriteLine("Attempting to create players table.");
+            Log.Information("Attempting to create players table.");
             Tables.CreatePlayersTable();
-            Console.WriteLine("Attempting to create guildsettings table.");
+            Log.Information("Attempting to create guildsettings table.");
             Tables.CreateGuildSettingsTable();
         }
         internal static void CheckDatabase()
@@ -123,16 +132,16 @@ namespace QBort.Core.Database
             // Check database existance
             if (!File.Exists(DatabaseFile))
             {
-                Console.WriteLine("-------------------------");
-                Console.WriteLine("Database Does not exist.");
-                Console.WriteLine("Attempting to create one.");
-                Console.WriteLine("-------------------------");
+                Log.Information("/-------------------------\\");
+                Log.Information("|Database not in existance|");
+                Log.Information("|Attempting to create one~|");
+                Log.Information("\\-------------------------/");
                 try
                 {
-                    Console.WriteLine("Trying to create file...");
+                    Log.Information("Trying to create file...");
                     // File.Create(DatabaseFile);
                     SQLiteConnection.CreateFile(DatabaseFile);
-                    Console.WriteLine("Files created successfully..?");
+                    Log.Information("Files created successfully..?");
                     CreateDatabase();
                     return;
                 }
@@ -173,5 +182,8 @@ namespace QBort.Core.Database
             }
             else return "exists";
         }
+#endregion
+
+        // Query string sanatizing Function goes here...
     }
 }

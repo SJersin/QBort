@@ -40,21 +40,30 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using QBort.Core.Structures;
 
 namespace QBort.Core.Database
 {
     internal class Player
     {
+        ///<summary>The player's Id. Type: <paramref="ulong"/></summary>
         internal ulong PlayerId { get; }
+        ///<summary>The player's game count. Type: <paramref="int"/></summary>
         internal int PlayCount { get; }
 
+        ///<summary>
+        ///A player object that holds the PlayerId and PlayCount values for a player retrieved from the database.
+        ///</summary>
+        ///<param name="id">The <paramref="ulong" /> id of the player.</param>
+        ///<param name="c">The <paramref="int" /> count of the player's games played.</param>
         internal Player(ulong id, int c)
         {
+            //TODO consider replacing this with Structures.PlayerData
             PlayerId = id;
             PlayCount = c;
         }
 
-        // *********** STATIC FUNCTIONS ***********************************
+#region  ********************** STATIC FUNCTIONS ***********************************
         internal static int AddPlayer(ulong GuildId, ulong PlayerId)
 
         {
@@ -94,7 +103,7 @@ namespace QBort.Core.Database
         }
         internal static int EditPlayerData(ulong GuildId, ulong PlayerId, string setting, string value)
         {
-            // TODO Sanitize this string
+            // TODO Sanitize this string?
             string query = $"UPDATE Players SET {setting} = {value} WHERE GuildId = {GuildId} AND PlayerId = {PlayerId}";
             return Database.ExecuteWrite(query);
         }
@@ -140,6 +149,23 @@ namespace QBort.Core.Database
                 return 0;
             }
         }
+        internal static DataTable GetPlayerData(ulong GuildId, ulong PlayerId)
+        {
+            string query = $"SELECT * FROM Players WHERE PlayerId = {PlayerId} AND GuildId = {GuildId}";
+            try
+            {
+                return Database.ExecuteRead(query);
+            }
+            catch (Exception e)
+            {
+                Log.Error(
+                    string.Concat("Guild: [", GuildId, 
+                            "] | Player: [", PlayerId, 
+                            "]\n", Messages.FormatError(e))
+                    );
+                    return null;
+            }
+        }
         internal static int IncreasePlayCount(ulong GuildId, ulong PlayerId)
         {
             var dt = Database.ExecuteRead($"SELECT * FROM Players WHERE GuildId = {GuildId} AND PlayerId = {PlayerId}");
@@ -156,8 +182,6 @@ namespace QBort.Core.Database
 
             int value = Convert.ToUInt16(dt.Rows[0]["IsActive"]);
             if (value != 0) value = 0; else value = 1;
-
-            query = string.Empty;
             query = $"UPDATE Players SET IsActive = {value} WHERE PlayerId = {PlayerId} AND GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
@@ -165,6 +189,6 @@ namespace QBort.Core.Database
         {
             return Database.ExecuteRead("SELECT * FROM Players WHERE GuildId = " + GuildId + " WHERE Agreed = 1");
         }
+#endregion
     }
-
 }

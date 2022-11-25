@@ -8,8 +8,6 @@
  * Overwatch, CS:GO, Call of Duty, or pretty much any first person shooter game that
  * has custom matches that can be made private.
  * 
- * Do not forget to configure the bot in the \Resources\config.json file!
- * 
  * By: Jersin - 12 DEC 2020
  */
 

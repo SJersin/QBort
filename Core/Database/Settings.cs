@@ -4,7 +4,7 @@
     For retrieving Guild Settings, see the Guild class.
 
     Table Schema:
-      GuildSettings - 
+      GuildSettings -
         GuildId INTEGER,            Primary Key
         GroupSize INTEGER,          Default number of users to pull from active list.
         MaxGroupSize INTEGER,       Maximum number of users to pull from active list.
@@ -17,20 +17,21 @@
         QueMsgId INTEGER,           The id of the message that is created and sent by the bot when the "open" command is used.
         PullMsgId INTEGER,          The id of the message that is created and sent by the bot when the "new" command is used.
         Reaction VARCHAR(50),      Name of the role to give users when they react to the server terms message
-        SubLv INTEGER               If I ever feel to incorporate subscription tiers. Capitalism, Ho!
 
-      Guilds - 
-        GuildId INTEGER,            Primary Key 
+
+      Guilds -
+        GuildId INTEGER,            Primary Key
         IsOpen INTEGER,             Boolean value for the status of the guilds queue. 0 for false (queue closed), 1 for true (queue open).
         GameName VARCHAR(50),       String value for the name of the game the queue will be hosting.
         GameMode VARCHAR(50)        String value for the name of the game mode the next pull will be using.
+        SubLv INTEGER               If I ever feel to incorporate subscription tiers. Capitalism, Ho!
 
-      Players - 
+      Players -
         GuildId INTEGER,            Primary Key
         PlayerId INTEGER,           Primary Key
         Nickname VARCHAR(50),       Supposed to be the user's in-game name... We'll see.
         PlayCount INTEGER,          The number of games the user has played.
-        IsActive INTEGER,           Boolean value for the active status of the user.  
+        IsActive INTEGER,           Boolean value for the active status of the user.
         SpecialGames INTEGER,       Boolean value to indicate if the user want to participate in "special rules" games.
         IsBanned INTEGER,           Boolean value for the banned status of the user.
         BanReason VARCHAR(500),     Reason for the banning.
@@ -42,47 +43,57 @@ namespace QBort.Core.Database
     {
         internal static int SetGroupSize(ulong GuildId, string set)
         {
-            string query = $"UPDATE Guild SET GroupSize = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guild SET GroupSize = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
         internal static int SetMaxGroupSize(ulong GuildId, string set)
         {
-            string query = $"UPDATE Guild SET MaxGroupSize = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guild SET MaxGroupSize = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
         internal static int SetPrefix(ulong GuildId, string set)
         {
-            string query = $"UPDATE Guild SET Prefix = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guild SET Prefix = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
         internal static int SetReaction(ulong GuildId, string set)
         {
-            string query = $"UPDATE Guild SET Reaction = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guild SET Reaction = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
         internal static int SetQueueMessageRoom(ulong GuildId, string set)
         {
-            string query = $"UPDATE Guild SET QueueMessageRoom = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guild SET QueueMessageRoom = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
         internal static int SetPullMessageRoom(ulong GuildId, string set)
         {
-            string query = $"UPDATE Guild SET PullMessageRoom = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guild SET PullMessageRoom = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
         internal static int SetModSettingsRoom(ulong GuildId, string set)
         {
-            string query = $"UPDATE Guild SET ModSettingsRoom = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guild SET ModSettingsRoom = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
         internal static int SetUserSettingsRoom(ulong GuildId, string set)
         {
-            string query = $"UPDATE Guild SET UserSettingsRoom = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guild SET UserSettingsRoom = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
         internal static int SetCustomRole(ulong GuildId, string set)
         {
-            string query = $"UPDATE Guild SET CustomRole = {set} WHERE GuildId = {GuildId}";
+            string query = $"UPDATE Guild SET CustomRole = '{set}' WHERE GuildId = {GuildId}";
+            return Database.ExecuteWrite(query);
+        }
+        internal static int SetPullMsgFormat(ulong GuildId, string set)
+        {
+            string query = $"UPDATE GuildSettings SET PullMsgFormat = '{set}' WHERE GuildId = {GuildId}";
+            return Database.ExecuteWrite(query);
+        }
+        internal static int SetCleanBotValue(ulong GuildId, string set)
+        {
+            string query = $"UPDATE GuildSettings SET CleanBot = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
     }

@@ -3,9 +3,11 @@
 /.token.cs
 /.vs
 /.vscode
+/DevMessages.cs
 /gitigmore
 /Properties
 /QBort.code-workspace
+/QBort-Test.code-workspace
 /QBort.user
 /appsettings.json
 /bin

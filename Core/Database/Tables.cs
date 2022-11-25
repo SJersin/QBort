@@ -44,7 +44,8 @@ namespace QBort.Core.Database
         {
             // Sanitize Strings
             // TODO Learn sanitization practices/techniques
-            string tquery = "CREATE TABLE Guilds(GuildId INTEGER PRIMARY KEY, IsOpen INTEGER, GameName VARCHAR(100), GameMode VARCHAR(100), RecallGroup VARCHAR(100), IsActive INTEGER)";
+            string tquery = "CREATE TABLE Guilds(GuildId INTEGER PRIMARY KEY, IsOpen INTEGER, GameName VARCHAR(100), "
+                    + "GameMode VARCHAR(100), RecallGroup VARCHAR(100), IsActive INTEGER, SubLv INTEGER)";
 
             int value = Database.ExecuteWrite(tquery);
             // Check for table creation success
@@ -56,7 +57,6 @@ namespace QBort.Core.Database
                 //TODO Something went wrong creating the table
             }
         }
-
         internal static void CreatePlayersTable()
         {
             // Sanitize Strings
@@ -77,11 +77,10 @@ namespace QBort.Core.Database
                 //TODO Something went wrong seeding the table
             }           
         }
-
         internal static void CreateGuildSettingsTable()
         {
             string tquery = "CREATE TABLE GuildSettings(GuildId INTEGER, GroupSize INTEGER, MaxGroupSize INTEGER, BotPrefix VARCHAR(5), Reaction VARCHAR(50), QueMsgRoom INTEGER, "
-            + "PullMsgRoom INTEGER, ModSettingsRoom INTEGER, UserSettingsRoom INTEGER, QueMsgId INTEGER, PullMsgId INTEGER, Role VARCHAR(20), SubLv INTEGER)";
+            + "PullMsgRoom INTEGER, ModSettingsRoom INTEGER, UserSettingsRoom INTEGER, QueMsgId INTEGER, PullMsgId INTEGER, Role VARCHAR(20), CleanBot INTEGER, PullMsgFormat VARCHAR[30])";
 
             int value = Database.ExecuteWrite(tquery);
             if (value != 1)
@@ -94,6 +93,15 @@ namespace QBort.Core.Database
             if (seed != 1)
             {
                 //TODO Something went wrong seeding the table
+            }
+        }
+        internal static void CreatePlayerNotesTable()
+        {
+            string tquery = "CREATE TABLE PlayerNotes(GuildId INTEGER, PlayerId INTEGER, NoteId INTEGER, NoteDate VARCHAR(50), Note VARCHAR(5000)";
+            int value = Database.ExecuteWrite(tquery);
+            if (value != 1)
+            {
+                //TODO Something went wrong creating the table
             }
         }
     }

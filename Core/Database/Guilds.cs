@@ -7,6 +7,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using QBort.Enums;
 
 namespace QBort.Core.Database
 {
@@ -14,7 +15,8 @@ namespace QBort.Core.Database
     {
         internal static int AddGuild(ulong GuildId)
         {
-            const string query = "INSERT INTO Guilds (GuildId, IsOpen, GameName, GameMode, RecallGroup, IsActive) VALUES (@GuildId, @IsOpen, @GameName, @GameMode, @RecallGroup, @IsActive)";
+            const string query = "INSERT INTO Guilds (GuildId, IsOpen, GameName, GameMode, RecallGroup, IsActive, SubLv) "
+                + "VALUES (@GuildId, @IsOpen, @GameName, @GameMode, @RecallGroup, @IsActive, @SubLv)";
 
             // Here we are setting the parameter values that will be 
             // replaced in the query in the ExecuteWrite method.
@@ -24,7 +26,8 @@ namespace QBort.Core.Database
                 { "@GameName", "Kami Quest 64" },
                 { "@GameMode", "I win."},
                 { "@RecallGroup", "Empty"},
-                { "@IsActive", Convert.ToString(1)}
+                { "@IsActive", Convert.ToString(1)},
+                { "@SubLv", Convert.ToString(0)}
 
             };
 
@@ -34,8 +37,9 @@ namespace QBort.Core.Database
         {
 
             const string query = "INSERT INTO GuildSettings (GuildId, GroupSize, MaxGroupSize, BotPrefix, Reaction, QueMsgRoom, "
-            + "PullMsgRoom, ModSettingsRoom, UserSettingsRoom, QueMsgId, PullMsgId, Role, SubLv) VALUES (@GuildId, @GroupSize, "
-            + "@MaxGroupSize, @BotPrefix, @Reaction, @QueMsgRoom, @PullMsgRoom, @ModSettingsRoom, @UserSettingsRoom, @QueMsgId, @PullMsgId, @Role, @SubLv);";
+            + "PullMsgRoom, ModSettingsRoom, UserSettingsRoom, QueMsgId, PullMsgId, Role, CleanBot, PullMsgFormat) "
+            + "VALUES(@GuildId, @GroupSize, @MaxGroupSize, @BotPrefix, @Reaction, @QueMsgRoom, @PullMsgRoom, @ModSettingsRoom, "
+            + "@UserSettingsRoom, @QueMsgId, @PullMsgId, @Role, @CleanBot, @PullMsgFormat);";
 
             var args = new Dictionary<string, object> {
                 { "@GuildId", GuildId },
@@ -50,7 +54,8 @@ namespace QBort.Core.Database
                 {"@QueMsgId", Convert.ToString(0)},
                 {"@PullMsgId", Convert.ToString(0)},
                 {"@Role", string.Empty},
-                {"@SubLv", 0}
+                {"@CleanBot", 0},
+                {"@PullMsgFormat", GroupListFormat.Plain.ToString()}
             };
 
             return Database.ExecuteWrite(query, args);
@@ -253,6 +258,16 @@ namespace QBort.Core.Database
                 return null;
             }
         }
+        internal static string GetPullMessageFormat(ulong GuildId)
+        {
+            var dt = Database.ExecuteRead(string.Concat("SELECT PullMsgFormat From GuildSettings WHERE GuildId = ", GuildId));
+            string results = Convert.ToString(dt.Rows[0]["PullMsgFormat"]);
+            
+            if (results == null || results == string.Empty)
+                return "No Prefix Assigned";
+            else return results;
+        }
+
         internal static string RecallGroup(ulong GuildId)
         {
             return Database.ExecuteRead("SELECT * FROM Guilds WHERE GuildId = " + GuildId).Rows[0]["RecallGroup"].ToString();

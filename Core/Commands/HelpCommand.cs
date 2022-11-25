@@ -44,7 +44,7 @@ namespace QBort.Core.Commands
                     
                     string description = "";
                     foreach (var cmd in module.Commands)
-                        description += cmd.Aliases.First()+"\n";
+                        description += cmd.Aliases.FirstOrDefault()+"\n";
 
                     // If there is a description, populate the values.
                     if (!string.IsNullOrWhiteSpace(description))

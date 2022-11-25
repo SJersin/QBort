@@ -1,15 +1,15 @@
 ﻿using System;
+using System.Linq;
+using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
-using System.Threading.Tasks;
-using System.Linq;
 using Discord.WebSocket;
 using QBort.Core.Database;
 
 
 namespace QBort.Core.Commands
 {
-    ///<summary>These commands are mod actions. Queue bans, unbans, play count manipulation and guild registration</summary 
+    ///<summary>These commands are mod actions. Queue bans, unbans, play count manipulation and guild registration</summary>
     public class ModCommands : ModuleBase<SocketCommandContext>
     {
         private SocketGuildUser _user = null;
@@ -32,17 +32,17 @@ namespace QBort.Core.Commands
                 else
                     _user = Context.Guild.GetUser(Context.Message.MentionedUsers.FirstOrDefault().Id);
 
-                    reason = string.Concat(DateTime.Now, " ", Context.User.Username,": ", 
-                        string.Equals(reason, "") ? "Reason left empty." : reason);
-    
+                reason = string.Concat(DateTime.Now, " ", Context.User.Username, ": ",
+                    string.Equals(reason, "") ? "Reason left empty." : reason);
+
                 if (_user is not null)
                 {
                     if (Guild.BanPlayer(Context.Guild.Id, _user.Id, reason) > 0)
                     {
-                        _embed.WithDescription(string.Concat(_user.Username," has been banned from the queue.\nReason: ",reason)) 
+                        _embed.WithDescription(string.Concat(_user.Username, " has been banned from the queue.\nReason: ", reason))
                               .WithColor(Color.DarkPurple);
-                        await _user.SendMessageAsync(string.Concat("You have been banned from ", Context.Guild.Name, "'s queues.\n",reason));
-    
+                        await _user.SendMessageAsync(string.Concat("You have been banned from ", Context.Guild.Name, "'s queues.\n", reason));
+
                     }
                     else
                         _embed.WithDescription("Could not ban player... Uh oh...")
@@ -51,7 +51,7 @@ namespace QBort.Core.Commands
                 else
                     _embed.WithDescription("Player not found.")
                           .WithColor(Color.DarkRed);
-    
+
                 await Context.Channel.SendMessageAsync(embed: _embed.Build());
             }
             catch (Exception e)
@@ -80,7 +80,7 @@ namespace QBort.Core.Commands
                     {
                         _embed.WithDescription($"The ban on {_user.Username} has been lifted.")
                               .WithColor(Color.DarkBlue);
-                        await _user.SendMessageAsync($"Your ban from {Context.Guild.Name} has been lifted by {Context.User.Username}.");
+                        await _user.SendMessageAsync($"Your ban from {Context.Guild.Name} queues has been lifted by {Context.User.Username}.");
                     }
                     else
                         _embed.WithDescription("Could not unban player.")
@@ -104,7 +104,10 @@ namespace QBort.Core.Commands
         [RequireUserPermission(GuildPermission.ManageChannels)]
         public async Task IncreasePlayCount([Remainder] string userID)
         {
-            _embed = new EmbedBuilder();            
+            _embed = new EmbedBuilder()
+                        .WithTitle("Increase Game Count")
+                        .WithDescription("Adding one count of game play.")
+                        .WithColor(Color.DarkTeal);
             if (!Guild.GetLobbyStatus(Context.Guild.Id))
             {
                 await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build());
@@ -112,7 +115,7 @@ namespace QBort.Core.Commands
             }
             try
             {
-                await Context.Channel.TriggerTypingAsync();
+                _ = Context.Channel.TriggerTypingAsync();
                 bool group = false;
                 int result;
 
@@ -121,37 +124,51 @@ namespace QBort.Core.Commands
                     _user = Context.Guild.GetUser(_id);
                 else
                     if (Context.Message.MentionedUsers.Count > 1)
-                        group = true;
-                    else
-                        _user = Context.Guild.GetUser(Context.Message.MentionedUsers.FirstOrDefault().Id);
+                    group = true;
+                else
+                    _user = Context.Guild.GetUser(Context.Message.MentionedUsers.FirstOrDefault().Id);
 
                 if (group)
                 {
-                    string results = string.Empty, 
+                    string results = string.Empty,
                            succeeded = string.Empty,
                            failed = string.Empty;
-
+                    _field = new EmbedFieldBuilder().WithName("Successfully reduced:");
                     foreach (var user in Context.Message.MentionedUsers)
                     {
                         result = Player.IncreasePlayCount(Context.Guild.Id, user.Id);
 
                         if (result > 0)
-                            string.Concat(succeeded, user.Username, ", ");
-                            // await Context.Channel.SendMessageAsync($"Game count for {user.Username} has been increased.");
+                            succeeded = string.Concat(succeeded, user.Username, ", ");
+                        // await Context.Channel.SendMessageAsync($"Game count for {user.Username} has been increased.");
                         else
-                            string.Concat(failed, user.Username, ", ");
-                           // await Context.Channel.SendMessageAsync($"There was an error processing this request.");
+                            failed = string.Concat(failed, user.Username, ", ");
+                        // await Context.Channel.SendMessageAsync($"There was an error processing this request.");
                     }
                     succeeded = succeeded.Remove(succeeded.LastIndexOf(','));
-                    failed = failed.Remove(failed.LastIndexOf(','));
+                    _field.WithValue(succeeded);
+                    _embed.AddField(_field);
+
+                    if (!string.IsNullOrEmpty(failed))
+                    {
+                        failed = failed.Remove(failed.LastIndexOf(','));
+                        _field = new EmbedFieldBuilder().WithName("Failed to adjust count:").WithValue(failed);
+                        _embed.AddField(_field);
+                    }
+                    await Context.Channel.SendMessageAsync(embed: _embed.Build());
                 }
                 else
                     if (Player.IncreasePlayCount(Context.Guild.Id, _user.Id) > 0)
-                        await Context.Channel.SendMessageAsync(embed: 
-                            _embed.WithTitle("Increase Game Count").WithDescription($"{_user}'s game count has been increaasd to {Player.GetPlayCount(Context.Guild.Id, _user.Id)}.").Build());
-                    else
-                        await Context.Channel.SendMessageAsync($"There was an error processing this request.");
-                
+                {
+                    _field.WithValue(_user.DisplayName);
+                    await Context.Channel.SendMessageAsync(embed: _embed.AddField(_field).Build());
+                }
+                else
+                {
+                    _field = new EmbedFieldBuilder().WithName("Failed to adjust count:").WithValue(_user.DisplayName);
+                    await Context.Channel.SendMessageAsync(embed: _embed.AddField(_field).Build());
+                }
+
             }
             catch (Exception e)
             {
@@ -166,20 +183,23 @@ namespace QBort.Core.Commands
         [RequireUserPermission(GuildPermission.ManageChannels)]
         public async Task DecreasePlayCount([Remainder] string userID)
         {
-            _embed = new EmbedBuilder();
+            _embed = new EmbedBuilder()
+                        .WithTitle("Reduce Game Count")
+                        .WithDescription("Remove one count of game play.")
+                        .WithColor(Color.DarkTeal);
             if (!Guild.GetLobbyStatus(Context.Guild.Id))
             {
-                await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build());
-                return;
+                await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return;
             }
             try
             {
                 await Context.Channel.TriggerTypingAsync();
                 bool group = false;
                 int result;
-                string results = string.Empty, 
+                string results = string.Empty,
                        succeeded = string.Empty,
                        failed = string.Empty;
+                _field = new EmbedFieldBuilder().WithName("Successfully reduced:");
 
                 //Check if userID is an @mention or a discordID and assigns them appropriately.
                 if (ulong.TryParse(userID, out ulong _id))
@@ -199,19 +219,36 @@ namespace QBort.Core.Commands
                         result = Player.DecreasePlayCount(Context.Guild.Id, user.Id);
 
                         if (result > 0)
-                            string.Concat(succeeded, ", ");
-                            // await Context.Channel.SendMessageAsync($"Game count for {user.Username} has been increased.");
+                            succeeded = string.Concat(succeeded, ", ");
+                        // await Context.Channel.SendMessageAsync($"Game count for {user.Username} has been increased.");
                         else
-                            string.Concat(failed, ", ");
-                           // await Context.Channel.SendMessageAsync($"There was an error processing this request.");
+                            failed = string.Concat(failed, ", ");
+                        // await Context.Channel.SendMessageAsync($"There was an error processing this request.");
                     }
+                    succeeded = succeeded.Remove(succeeded.LastIndexOf(','));
+
+                    _field.WithValue(succeeded);
+                    _embed.AddField(_field);
+
+                    if (!string.IsNullOrEmpty(failed))
+                    {
+                        failed = failed.Remove(failed.LastIndexOf(','));
+                        _field = new EmbedFieldBuilder().WithName("Failed to adjust count:").WithValue(failed);
+                        _embed.AddField(_field);
+                    }
+                    await Context.Channel.SendMessageAsync(embed: _embed.Build());
                 }
                 else
                     if (Player.DecreasePlayCount(Context.Guild.Id, _user.Id) > 0)
-                        await Context.Channel.SendMessageAsync($"Game count for {_user.Username} has been decreased.");
-                    else
-                        await Context.Channel.SendMessageAsync($"There was an error processing this request.");
-                
+                {
+                    _field.WithValue(_user.DisplayName);
+                    await Context.Channel.SendMessageAsync(embed: _embed.AddField(_field).Build());
+                }
+                else
+                {
+                    _field = new EmbedFieldBuilder().WithName("Failed to adjust count:").WithValue(_user.DisplayName);
+                    await Context.Channel.SendMessageAsync(embed: _embed.AddField(_field).Build());
+                }
             }
             catch (Exception e)
             {
@@ -222,25 +259,27 @@ namespace QBort.Core.Commands
         }
 
 
- //       [Command("inactive")]
+        //       [Command("inactive")]
         [Summary(": Sets the mentioned player from the currently active queue to inactive. The player will be able to become active again by reacting to the queue message again.")]
         [RequireUserPermission(GuildPermission.ManageChannels)]
         public async Task SetPlayerInactive([Remainder] string player)
         {
             _embed = new EmbedBuilder();
             if (!Guild.GetLobbyStatus(Context.Guild.Id))
-                { await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return;}
-            
+            { await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return; }
+
             _user = Context.Guild.GetUser(Context.Message.MentionedUsers.FirstOrDefault().Id);
         }
 
-        [Command("admin")]
-        [Summary(": Sets the mentioned player from the currently active queue to inactive. The player will be able to become active again by reacting to the queue message again.")]
+        //        [Command("admin")]
+        [Summary(": CLI style argument passing for settings.")]
         [RequireUserPermission(GuildPermission.ManageChannels)]
         public async Task AdminCommand([Remainder] string args)
         {
-
+            // something something.
+            await Task.CompletedTask;
         }
+
         [Command("register")]
         [Summary(": Registers a server with the bot.")]
         [RequireUserPermission(GuildPermission.ManageChannels)]
@@ -252,18 +291,18 @@ namespace QBort.Core.Commands
             switch (check)
             {
                 case "added":
-                    await Context.Channel.SendMessageAsync(embed: 
+                    await Context.Channel.SendMessageAsync(embed:
                         _embed.WithDescription("Server has been successfully registered.").WithColor(Color.DarkTeal).Build());
                     break;
 
                 case "exists":
-                    await Context.Channel.SendMessageAsync(embed: 
+                    await Context.Channel.SendMessageAsync(embed:
                         _embed.WithDescription("The server id already exists.").WithColor(Color.Gold).Build());
                     break;
 
                 default:
-                    await Context.Channel.SendMessageAsync(embed: 
-                        _embed.WithDescription(string.Concat("There was an error registering the server: ",check)).WithColor(Color.DarkRed).Build());
+                    await Context.Channel.SendMessageAsync(embed:
+                        _embed.WithDescription(string.Concat("There was an error registering the server: ", check)).WithColor(Color.DarkRed).Build());
                     break;
             }
         }

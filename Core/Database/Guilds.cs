@@ -18,7 +18,7 @@ namespace QBort.Core.Database
             const string query = "INSERT INTO Guilds (GuildId, IsOpen, GameName, GameMode, RecallGroup, IsActive, SubLv) "
                 + "VALUES (@GuildId, @IsOpen, @GameName, @GameMode, @RecallGroup, @IsActive, @SubLv)";
 
-            // Here we are setting the parameter values that will be 
+            // Here we are setting the parameter values that will be
             // replaced in the query in the ExecuteWrite method.
             var args = new Dictionary<string, object> {
                 { "@GuildId", GuildId },
@@ -72,8 +72,7 @@ namespace QBort.Core.Database
         }
         internal static int GetActivePlayerCount(ulong GuildId)
         {
-            using (var data = Database.ExecuteRead($"SELECT * From Players WHERE GuildId = '{GuildId}' And IsActive = 1 And IsBanned = 0"))
-                return data.Rows.Count;
+            return Database.ExecuteRead($"SELECT * From Players WHERE GuildId = '{GuildId}' And IsActive = 1 And IsBanned = 0").Rows.Count;
         }
         internal static DataTable GetActivePlayersList(ulong GuildId)
         {
@@ -106,7 +105,7 @@ namespace QBort.Core.Database
                 set = 0;
             else
                 set = 1;
-            string query = $"UPDATE Guilds Set IsOpen = {set.ToString()} WHERE GuildId = '{GuildId}'";
+            string query = $"UPDATE Guilds Set IsOpen = '{set}' WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static DataTable GetGuildSettings(ulong GuildId)
@@ -262,12 +261,11 @@ namespace QBort.Core.Database
         {
             var dt = Database.ExecuteRead(string.Concat("SELECT PullMsgFormat From GuildSettings WHERE GuildId = ", GuildId));
             string results = Convert.ToString(dt.Rows[0]["PullMsgFormat"]);
-            
+
             if (results == null || results == string.Empty)
                 return "No Prefix Assigned";
             else return results;
         }
-
         internal static string RecallGroup(ulong GuildId)
         {
             return Database.ExecuteRead("SELECT * FROM Guilds WHERE GuildId = " + GuildId).Rows[0]["RecallGroup"].ToString();
@@ -297,8 +295,8 @@ namespace QBort.Core.Database
             string group = string.Empty;
             foreach (var PlayerId in list)
                 group = string.Concat(group, PlayerId, ',');
-                if (group.EndsWith(','))
-                    group = group.Remove(group.LastIndexOf(','));
+            if (group.EndsWith(','))
+                group = group.Remove(group.LastIndexOf(','));
             string query = $"UPDATE Guilds Set RecallGroup = '{group}' WHERE GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }

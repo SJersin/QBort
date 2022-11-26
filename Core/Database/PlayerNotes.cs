@@ -1,7 +1,7 @@
 /*
     Player Notes Table Scheme
 
-GuildId INTEGER 
+GuildId INTEGER
 PlayerId INTEGER
 NoteId INTEGER
 NoteDate VARCHAR(50)
@@ -17,17 +17,17 @@ namespace QBort.Core.Database
 {
     class PlayerNotes
     {
-        private static string SetNoteQuery = "INSERT INTO Players(GuildId, PlayerId, NoteId, NoteDate, Note) Values (@GuildId, @PlayerId, @NoteId, @NoteDate, @Note)";
-        private Dictionary<string, object> Values = new();
+        private static readonly string SetNoteQuery = "INSERT INTO Players(GuildId, PlayerId, NoteId, NoteDate, Note) Values (@GuildId, @PlayerId, @NoteId, @NoteDate, @Note)";
+        private readonly Dictionary<string, object> Values = new();
         private int _noteCount = 0;
 
         private int GetPlayerNoteCount(ulong GuildId, ulong PlayerId)
         {
             string query = $"SELECT count(NoteId) AS 'Count' FROM PlayerNotes WHERE GuildId = {GuildId} AND PlayerId = {PlayerId}";
-            using (var dt = Database.ExecuteRead(query))
-                if (dt != null)
-                    return Convert.ToInt16(dt.Rows[0]["Count"]);
-                else return -1;
+            using var dt = Database.ExecuteRead(query);
+            if (dt != null)
+                return Convert.ToInt16(dt.Rows[0]["Count"]);
+            else return -1;
         }
         string[] GetPlayerNotes(ulong GuildId, ulong PlayerId)
         {
@@ -41,7 +41,7 @@ namespace QBort.Core.Database
             }
             else if (_noteCount == 0)
             {
-                return notes = new string[] { "There are no notes for this player." };
+                return new string[] { "There are no notes for this player." };
             }
             else
                 using (var dt = Database.ExecuteRead(query))
@@ -75,13 +75,13 @@ namespace QBort.Core.Database
         {
             _noteCount = GetPlayerNoteCount(GuildId, PlayerId);
             Note = string.Concat("[Per: ", NotedBy, "] : ", Note);
-        #region Add Values
+            #region Add Values
             Values.Add("@GuildId", GuildId);
             Values.Add("@PlayerId", PlayerId);
             Values.Add("@NoteId", _noteCount);
             Values.Add("@NoteDate", DateTime.Now.ToShortDateString());
             Values.Add("@Note", Note);
-        #endregion
+            #endregion
             return Database.ExecuteWrite(SetNoteQuery, Values);
         }
     }

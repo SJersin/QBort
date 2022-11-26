@@ -9,7 +9,7 @@ namespace QBort.Core.Commands
     // TODO update all these ugly channel messages with pretty embeds.
     public class SettingsCommands : ModuleBase<SocketCommandContext>
     {
-        private readonly EmbedBuilder _embed = new();
+        private EmbedBuilder _embed;
         private EmbedFieldBuilder _field;
 
         [Command("set-listf")]
@@ -145,7 +145,8 @@ namespace QBort.Core.Commands
         [Summary(": Gots sum extra luvs to share..?")]
         public async Task ShamelessSolicitation()
         {
-            _embed.WithTitle(DevMessages.SupportThankYouMessage).WithDescription(DevMessages.DonationUsagePledge).WithFooter("Muchos luv~<3");
+            _embed = new EmbedBuilder().WithTitle(DevMessages.SupportThankYouMessage)
+                .WithDescription(DevMessages.DonationUsagePledge).WithFooter("Muchos luv~<3");
             _field = new EmbedFieldBuilder().WithName("Patreon:").WithValue(DevMessages.PatreonLink);
             _embed.AddField(_field);
             _field = new EmbedFieldBuilder().WithName("YouTube:").WithValue(DevMessages.YouTubeLink);

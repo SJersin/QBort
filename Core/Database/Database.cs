@@ -14,11 +14,11 @@ using System.Threading.Tasks;
 
     No asynchronous logger methods
 
-    Logging should be so fast that it isn't worth the performance cost of asynchronous code. 
-    If a logging datastore is slow, don't write to it directly. Consider writing the log messages 
-    to a fast store initially, then moving them to the slow store later. For example, when logging 
-    to SQL Server, don't do so directly in a Log method, since the Log methods are synchronous. 
-    Instead, synchronously add log messages to an in-memory queue and have a background worker 
+    Logging should be so fast that it isn't worth the performance cost of asynchronous code.
+    If a logging datastore is slow, don't write to it directly. Consider writing the log messages
+    to a fast store initially, then moving them to the slow store later. For example, when logging
+    to SQL Server, don't do so directly in a Log method, since the Log methods are synchronous.
+    Instead, synchronously add log messages to an in-memory queue and have a background worker
     pull the messages out of the queue to do the asynchronous work of pushing data to SQL Server.
 
  */
@@ -27,13 +27,13 @@ namespace QBort.Core.Database
 {
     internal class Database
     {
-#region     Properties
-        private static string DatabaseFile = ".data/qbort.db";
-        private static string ConnectionString = "DataSource=" + DatabaseFile;
+        #region     Properties
+        private static readonly string DatabaseFile = ".data/qbort.db";
+        private static readonly string ConnectionString = "DataSource=" + DatabaseFile;
         private static SQLiteCommand cmd;
         private static SQLiteConnection con;
-#endregion
-#region     Database Writing
+        #endregion
+        #region     Database Writing
         internal static int ExecuteWrite(string query, Dictionary<string, object> args)
         {
             int numberOfRowsAffected;
@@ -82,8 +82,8 @@ namespace QBort.Core.Database
                 return numberOfRowsAffected;
             }
         }
-#endregion
-#region     Database Reading
+        #endregion
+        #region     Database Reading
         /** <summary>
             Processes a query designed to extract data from the database.
             </summary>
@@ -116,8 +116,8 @@ namespace QBort.Core.Database
                 }
             }
         }
-#endregion
-#region     Check Database and Create Database methods.
+        #endregion
+        #region     Check Database and Create Database methods.
         private static void CreateDatabase()
         {
             Log.Information("Attempting to creaste guilds table.");
@@ -126,6 +126,8 @@ namespace QBort.Core.Database
             Tables.CreatePlayersTable();
             Log.Information("Attempting to create guildsettings table.");
             Tables.CreateGuildSettingsTable();
+            Log.Information("Attempting to create playernotes table.");
+            Tables.CreatePlayerNotesTable();
         }
         internal static void CheckDatabase()
         {
@@ -151,6 +153,7 @@ namespace QBort.Core.Database
                     Log.Error(Messages.FormatError(e));
                 }
             }
+            #region Database creation check or something
 
             // string GuildsTableReport, GuildSettingsTableReport, PlayersTableReport;
             // bool RowCountTest, ZeroEntryTest, test3;
@@ -162,10 +165,10 @@ namespace QBort.Core.Database
             // else RowCountTest = true;
 
             // // Check for zero entry in the table. If no entry, what happened to it?
-            // if (Convert.ToUInt64(check.Rows[0]["GuildId"]) == 0) 
+            // if (Convert.ToUInt64(check.Rows[0]["GuildId"]) == 0)
             //     ZeroEntryTest = false;
             // else ZeroEntryTest = true;
-
+            #endregion
 
         }
         internal static string RegisterGuild(ulong GuildId)
@@ -182,7 +185,7 @@ namespace QBort.Core.Database
             }
             else return "exists";
         }
-#endregion
+        #endregion
 
         // Query string sanatizing Function goes here...
     }

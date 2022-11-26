@@ -5,7 +5,8 @@
 ## Things I have noted to add to the bot
 
 - Have bot DM me when there is an (super for serious y'all) error reported to log?
-- More options to be set!! *ALL THE OPTIONS!!*
+- More options to be set!! *ALL THE OPTIONS!!*\*
+  - *Not all options available to be set.
 - Add an "AFK" mode for mods and users.
   - Allow for players to quickly change their active status.
 - Auto-guild registration? Display something or another?

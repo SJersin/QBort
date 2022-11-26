@@ -142,9 +142,7 @@ namespace QBort.Core.Commands
                     try
                     {
                         foreach (var item in _deletemetasks)
-                        {
                             _deletethese.Add(await item);
-                        }
 
                         foreach (var msg in _deletethese)
                             await msg.DeleteAsync();
@@ -174,14 +172,8 @@ namespace QBort.Core.Commands
             //TODO Make the list embed after guild registration and agreement?
             _embed = new EmbedBuilder();
             if (!Guild.GetLobbyStatus(GuildId))
-            {
-                await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build());
-                return;
-            }
-
-            string gem = Guild.GetReaction(GuildId),
-                   NameList = string.Empty,
-                   GameCountList = string.Empty;
+            { await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return; }
+            string NameList = string.Empty;
 
             using (var PlayersToList = Guild.GetActivePlayersList(GuildId))
             {
@@ -192,7 +184,6 @@ namespace QBort.Core.Commands
             NameList = NameList.Remove(NameList.LastIndexOf('|') - 1);
 
             _field = new EmbedFieldBuilder().WithName("Active users: ").WithValue(NameList);
-
             try
             {
                 int activePlayers = Guild.GetActivePlayerCount(GuildId);
@@ -309,7 +300,7 @@ namespace QBort.Core.Commands
 
                 }
 
-            List<Task<IUserMessage>> DMs = new List<Task<IUserMessage>>(); // using var or new() is acceptable here, I just didn't want to.
+            List<Task<IUserMessage>> DMs = new(); // using var or new() is acceptable here, I just didn't want to. EDIT: The formatted wanted to.
             try
             {
                 ulong x;
@@ -401,10 +392,8 @@ namespace QBort.Core.Commands
         {
             GuildId = Context.Guild.Id;
             if (!Guild.GetLobbyStatus(GuildId))
-            {
-                await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build());
-                return;
-            }
+            { await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return; }
+
             string[] group = Guild.RecallGroup(GuildId).Split(',');
             string mentions = "";
             //TODO Finish pulling, seperating and assigning ulong Ids
@@ -435,14 +424,15 @@ namespace QBort.Core.Commands
         }
 
         [Command("replace")]
-        [Summary(": Calls a new player to replace one that is unable to participate after they have been called. Used by passing @mentions\nEx: `replace @Johnny @May`")]
+        [Summary(": Calls a new player to replace one that is unable to participate after they have been called. Used by passing @mentions\nEx: `replace @Johnny @May`\n"
+        + "will remove Johnny and May from the group and replace them each with another randomly pulled player.")]
         [RequireUserPermission(GuildPermission.ManageChannels)]
         public async Task ReplacePlayer([Remainder] string mentions = "")
         {
             try
             {
                 List<ulong> UsersToReplace = new(),
-                             RecallList = new();
+                            RecallList = new();
 
                 List<Player> ReplacementPlayersList = new(),
                              ReplacementPlayers = new();
@@ -568,15 +558,15 @@ namespace QBort.Core.Commands
         }
 
         [Command("swap")]
-        [Summary(": Not yet implemented.")]
+        [Summary(": Replaces a player in the current group with a specifc player.\nExample: `swap @jersin @sum1btr`\nwill remove jersin and replace them with sum1btr.")]
         public async Task SwapPlayer([Remainder] string mentionedUsers = "")
         {
             if (mentionedUsers == "")
-            { _ = Context.Channel.SendMessageAsync("Done."); return; }
+            { await Context.Channel.SendMessageAsync("Done."); return; }
 
             var Players = Context.Message.MentionedUsers;
             if (Context.Message.MentionedUsers.Count < 2) // No mentions passed; no one to replace.
-            { _ = Context.Channel.SendMessageAsync("Swap with whom???????"); return; }
+            { await Context.Channel.SendMessageAsync("Swap with whom???????"); return; }
             else
             {
                 List<SocketGuildUser> _users = new();
@@ -585,12 +575,18 @@ namespace QBort.Core.Commands
                     _users.Add((SocketGuildUser)player);
 
                 if (Players.Count != 2)
-                { _ = Context.Channel.SendMessageAsync("What kind of swap is this supposed to be? Two players only, mate! No more, no less!"); return; }
+                { await Context.Channel.SendMessageAsync("What kind of swap is this supposed to be? Two players only, mate! No more, no less!"); return; }
 
                 var RecallGroup = Array.ConvertAll(Guild.RecallGroup(Context.Guild.Id).Split(','), x => ulong.Parse(x)).ToList();
                 string filling_in, sitting_out;
 
-                if (RecallGroup.Contains(_users.First().Id))
+                if (RecallGroup.Contains(_users.First().Id) && RecallGroup.Contains(_users.Last().Id))
+                {
+                    await Context.Channel.SendMessageAsync(embed: new EmbedBuilder()
+                        .WithTitle("Swap command..?").WithDescription("You're still in, just trade seats... or something!").Build());
+                    return;
+                }
+                else if (RecallGroup.Contains(_users.First().Id))
                 {
                     sitting_out = _users.First().DisplayName;
                     RecallGroup.Remove(_users.First().Id);
@@ -599,7 +595,7 @@ namespace QBort.Core.Commands
                     RecallGroup.Add(_users.Last().Id);
                     Player.IncreasePlayCount(Context.Guild.Id, _users.Last().Id);
                 }
-                else
+                else if (RecallGroup.Contains(_users.Last().Id))
                 {
                     sitting_out = _users.Last().DisplayName;
                     RecallGroup.Remove(_users.Last().Id);
@@ -608,17 +604,21 @@ namespace QBort.Core.Commands
                     RecallGroup.Add(_users.First().Id);
                     Player.IncreasePlayCount(Context.Guild.Id, _users.First().Id);
                 }
-
+                else
+                {
+                    await Context.Channel.SendMessageAsync(embed: new EmbedBuilder()
+                        .WithTitle("Swap command..?").WithDescription("You're *not* in, but like... trade seats... or something?")
+                        .WithFooter(string.Concat("Blame: ", Context.User.Username), ", ok?").Build());
+                    return;
+                }
                 try
                 {
                     _embed = new EmbedBuilder()
                           .WithTitle($"**{Context.User.Username}** Roster Rotation!")
                           .WithDescription("Pay attention to the changes listed!!");
-
                     _field = new EmbedFieldBuilder().WithName("Players sitting out:")
                           .WithValue(string.IsNullOrEmpty(sitting_out) ? "No one it seems..." : sitting_out);
                     _embed.AddField(_field);
-
                     _field = new EmbedFieldBuilder().WithName("Players now in the play group:")
                           .WithValue(string.IsNullOrEmpty(filling_in) ? "No one it seems..." : filling_in);
                     _embed.AddField(_field);
@@ -628,10 +628,12 @@ namespace QBort.Core.Commands
 
                     if (Guild.SetRecallGroup(GuildId, RecallGroup.ToArray()) < 1)
                         Log.Error(string.Concat("There was an issue updating the recall list in the swap command for guild:\n> ", Context.Guild.Name, "\n[U:", Context.Guild.Id, "]"));
+                    await SendEmbedTask;
                 }
                 catch (Exception e)
                 {
                     Log.Error(Messages.FormatError(e));
+                    throw new TaskCanceledException();
                 }
             }
         }
@@ -640,7 +642,7 @@ namespace QBort.Core.Commands
         [Summary(": Returns the status of the guild's queue.")]
         public async Task QueueStatus()
         {
-            await Context.Channel.SendMessageAsync("The queue is " + (Guild.GetLobbyStatus(Context.Guild.Id) ? "open." : "closed."));
+            await Context.Channel.SendMessageAsync(string.Concat("The queue is ", Guild.GetLobbyStatus(Context.Guild.Id) ? "open." : "closed."));
         }
 
         /* Map Commands
@@ -725,6 +727,8 @@ namespace QBort.Core.Commands
             }
 
         */
+        // [Command("testing")]
+        [Summary(": IGNORE ME!")]
         private async Task GenerateReactEmbed()
         {
             await Context.Channel.TriggerTypingAsync();

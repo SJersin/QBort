@@ -6,11 +6,11 @@ namespace QBort.Core.Structures
 {
     public struct PlayerData
     {
-        public ulong ID {get; private set;} = 0;
-        public string Name {get; set;} = string.Empty;
-        public int GameCount {get; private set;} = -1;
-        public bool? IsBanned {get; private set;}= null;
-        public string Notes {get; private set;} = string.Empty;
+        public ulong ID { get; private set; } = 0;
+        public string Name { get; set; } = string.Empty;
+        public int GameCount { get; private set; } = -1;
+        public bool? IsBanned { get; private set; } = null;
+        public string Notes { get; private set; } = string.Empty;
 
         public PlayerData(DataTable _player)
         {
@@ -25,19 +25,19 @@ namespace QBort.Core.Structures
                 GameCount = Convert.ToInt16(_player.Rows[0]["PlayCount"]);
                 valuetest = "bancheck";
                 IsBanned =
-                    Convert.ToInt16(_player.Rows[0]["IsBanned"]) > 0 ? true : false;
+                    Convert.ToInt16(_player.Rows[0]["IsBanned"]) > 0;
             }
-            catch(ArgumentNullException e)
+            catch (ArgumentNullException e)
             {
-                Notes = string.Concat(Notes, valuetest , 
+                Notes = string.Concat(Notes, valuetest,
                 " check returned null... Not great...\n", Messages.FormatError(e));
             }
-            catch(FormatException e)
+            catch (FormatException e)
             {
-                Notes = string.Concat(Notes, valuetest, 
+                Notes = string.Concat(Notes, valuetest,
                     " Format exception. Verify data or try 'banning and unbanning'...</s>\n", Messages.FormatError(e));
             }
-            catch(OverflowException e)
+            catch (OverflowException e)
             {
                 string ohnoes = "... I don't know how an overflow exception was thrown... Contact an adult... Immediately..!\n";
                 Notes = string.Concat(Notes, valuetest, ohnoes, Messages.FormatError(e));

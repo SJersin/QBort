@@ -1,9 +1,9 @@
-﻿using Discord;
-using Discord.Commands;
-using System.Threading.Tasks;
+﻿using System;
 using System.Linq;
+using System.Threading.Tasks;
+using Discord;
+using Discord.Commands;
 using QBort.Core.Database;
-using System;
 
 namespace QBort.Core.Commands
 {
@@ -24,27 +24,27 @@ namespace QBort.Core.Commands
             if (command == "")
             {
                 var rand = new Random();
-                var colors =  new byte[3];
+                var colors = new byte[3];
                 rand.NextBytes(colors);
                 var embed = new EmbedBuilder()
                 {
-                    Color = new Color((int) colors[0], (int) colors[1], (int) colors[2]),   //random colors for funsies.
+                    Color = new Color((int)colors[0], (int)colors[1], (int)colors[2]),   //random colors for funsies.
                     Description = $"Here are the commands. \nUse {prefix}help [command] for more information on the command."
                 };
 
                 foreach (var module in _Service.Modules)
                 {
                     // Don't display my secret testing commands. Mine! Hissssss!
-                    if (string.Equals(module.Name, "TestCommands", StringComparison.CurrentCultureIgnoreCase)) continue; 
+                    if (string.Equals(module.Name, "TestCommands", StringComparison.CurrentCultureIgnoreCase)) continue;
 
                     // Don't display mod commands to non-mod +help users... IDK!
                     if (!Context.Guild.GetUser(Context.User.Id).GetPermissions(Context.Channel as IGuildChannel)
-                            .Has(ChannelPermission.ManageChannels) 
+                            .Has(ChannelPermission.ManageChannels)
                         && string.Equals(module.Name, "ModCommands", StringComparison.CurrentCultureIgnoreCase)) continue;
-                    
+
                     string description = "";
                     foreach (var cmd in module.Commands)
-                        description += cmd.Aliases.FirstOrDefault()+"\n";
+                        description = string.Concat(description, cmd.Aliases[0], Environment.NewLine);
 
                     // If there is a description, populate the values.
                     if (!string.IsNullOrWhiteSpace(description))

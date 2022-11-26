@@ -1,18 +1,18 @@
 ﻿using System;
+using System.Data;
+using System.Linq;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
-using System.Linq;
 using QBort.Core.Database;
-using System.Data;
 
 namespace QBort
 {
     class EventHandler
     {
-        private DiscordSocketClient _client;
+        private readonly DiscordSocketClient _client;
         private readonly CommandService _commands;
         private readonly IServiceProvider _services;
         private SocketUserMessage Message;
@@ -21,7 +21,7 @@ namespace QBort
         private DataTable GuildSettings;
         private ulong QueMsgId;
         private string Role;
-        private string SetGame = "+help";
+        private readonly string SetGame = "+help";
 
         public EventHandler(IServiceProvider Services)
         {
@@ -51,12 +51,12 @@ namespace QBort
         {
             try
             {
+                // Ignore non-user messages, or messages from other bots
+                if (_message is not SocketUserMessage) return;
+                if (_message.Source != MessageSource.User) return;
+
                 var m = _message as SocketUserMessage;
                 var Context = new SocketCommandContext(_client, m);
-
-                // Ignore non-user messages, or messages from other bots
-                if (!(_message is SocketUserMessage)) return;
-                if (_message.Source != MessageSource.User) return;
 
                 int ArgPos = 0;
                 string _prefix = "+";
@@ -68,13 +68,13 @@ namespace QBort
                 {
                     Log.Error(Messages.FormatError(e));
                 }
-                if (!(m.HasStringPrefix(_prefix, ref ArgPos))
-                ) return; //Ignore non-prefixed messages or bot @mention(?)
+                if (!(m.HasStringPrefix(_prefix, ref ArgPos))) return; //Ignore non-prefixed messages or bot @mention(?)
 
                 var Result = await _commands.ExecuteAsync(Context, ArgPos, _services); // Third arguement set IServices. Use null if not using an IService.
                 if (!Result.IsSuccess && Result.Error != CommandError.UnknownCommand)
                 {
-                    Console.WriteLine($"{DateTime.Now} at Command: {_commands.Search(Context, ArgPos).Commands.FirstOrDefault().Command.Name} in {_commands.Search(Context, ArgPos).Commands.FirstOrDefault().Command.Module.Name}] {Result.ErrorReason}");
+                    var command = _commands.Search(Context, ArgPos).Commands.FirstOrDefault().Command;
+                    Console.WriteLine($"{DateTime.Now} at Command: {command.Name} in {command.Module.Name}] {Result.ErrorReason}");
 
                     var embed = new EmbedBuilder(); // Creates embed object neccessary to display things.
 
@@ -89,7 +89,7 @@ namespace QBort
         private async Task ReactionAdded(
             Cacheable<IUserMessage, ulong> _message,
             Cacheable<IMessageChannel, ulong> channel,
-            SocketReaction reaction )
+            SocketReaction reaction)
         {
             #region "Agreement Message Reaction"
             /*
@@ -98,12 +98,19 @@ namespace QBort
                 forth. If the user so chooses, at any time the reaction can be removed which will render the user
                 indefinitely inactive until reacted to again.
             */
-
             // Get all relevant information
+            try
+            {
+                GuildSettings = Guild.GetGuildSettings(Context.Guild.Id);
+            }
+            catch (Exception e)
+            {
+                Log.Error(Messages.FormatError(e));
+                return;
+            }
             Message = await _message.GetOrDownloadAsync() as SocketUserMessage;
             Context = new SocketCommandContext(_client, Message);
             Channel = await channel.GetOrDownloadAsync();
-            GuildSettings = Guild.GetGuildSettings(Context.Guild.Id);
             QueMsgId = Convert.ToUInt64(GuildSettings.Rows[0]["QueMsgId"]);
             Role = GuildSettings.Rows[0]["Role"].ToString();
 
@@ -122,7 +129,7 @@ namespace QBort
                             Player.AddPlayer(Context.Guild.Id, user.Id);
                         Player.EditPlayerData(Context.Guild.Id, user.Id, "Agreed", "1");
                         Player.EditPlayerData(Context.Guild.Id, user.Id, "IsActive", "1");
-                    }                    
+                    }
                 }
                 catch (Exception e)
                 {
@@ -177,4 +184,3 @@ namespace QBort
         }
     }
 }
-

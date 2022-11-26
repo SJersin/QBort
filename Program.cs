@@ -1,21 +1,21 @@
 ﻿/*
     Q-Bort - A queue management bot designed for use in multiple guilds.
-    
+
     By: Jersin - 12 DEC 2020
-    
+
  */
 
 global using Serilog;
 using System;
-using Serilog.Events;
 using System.IO;
 using Microsoft.Extensions.Configuration;
+using Serilog.Events;
 
 namespace QBort
 {
     class Program
     {
-        static void Main(string[] args)
+        static void Main()
         {
             Log.Logger = new LoggerConfiguration()
                .WriteTo.Console()
@@ -24,7 +24,7 @@ namespace QBort
 
             try
             {
-                Bot QBort = new Bot();
+                Bot QBort = new();
                 Console.WriteLine("Starting bot...");
                 QBort.MainAsync().GetAwaiter().GetResult();
             }

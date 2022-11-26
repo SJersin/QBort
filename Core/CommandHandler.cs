@@ -1,16 +1,16 @@
 ﻿using System;
+using System.Reflection;
+using System.Threading.Tasks;
 using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
-using System.Threading.Tasks;
-using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace QBort
 {
     class CommandHandler
     {
-        private readonly DiscordSocketClient _client;
+        // private readonly DiscordSocketClient _client;
         private readonly CommandService _commands;
         private readonly IServiceProvider _Services;
 
@@ -19,7 +19,7 @@ namespace QBort
         public CommandHandler(IServiceProvider Services)
         {
             //_Client = Client;
-            _client = Services.GetRequiredService<DiscordSocketClient>();
+            // _client = Services.GetRequiredService<DiscordSocketClient>();
             //_Commands = Commands;
             _commands = Services.GetRequiredService<CommandService>();
             _Services = Services;

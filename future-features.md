@@ -10,11 +10,12 @@
 - Add an "AFK" mode for mods and users.
   - Allow for players to quickly change their active status.
 - Auto-guild registration? Display something or another?
+- Setting to switch bot between random order fair pull (current default) and the old bot's traditional FIFO by reaction.
 
 ### I need to do these first
 
 1. Figure out why the queue management breaks after connection reset.
-2. Add parameter / functionality to New command to allow for game specification.
+2. Add parameter / functionality to New/Open command to allow for game specification.
     - Allow for game name to be passed after role.
     - I'll think of other uses for it while I'm fighting with it.
 

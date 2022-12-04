@@ -13,6 +13,16 @@ namespace QBort.Core.Database
 {
     internal class Guild
     {
+        #region Table Seeding Functions
+
+        /// <summary>
+        /// Adds the guild to the guild table and seeds default values.
+        /// </summary>
+        /// <param name="GuildId">The guild whose record to seed.</param>
+        /// <returns>
+        /// 1 if the guild was successfully added to the table.
+        /// Not 1 if the attempt was unsuccessful.
+        /// </returns>
         internal static int AddGuild(ulong GuildId)
         {
             const string query = "INSERT INTO Guilds (GuildId, IsOpen, GameName, GameMode, RecallGroup, IsActive, SubLv) "
@@ -33,13 +43,21 @@ namespace QBort.Core.Database
 
             return Database.ExecuteWrite(query, args);
         }
+        /// <summary>
+        /// Adds the guild to the guildsettings table and seeds default values.
+        /// </summary>
+        /// <param name="GuildId">The guild whose settings record to seed.</param>
+        /// <returns>
+        /// 1 if the guild was successfully added to the table.
+        /// Not 1 if the attempt was unsuccessful.
+        /// </returns>
         internal static int AddGuildSettings(ulong GuildId)
         {
 
             const string query = "INSERT INTO GuildSettings (GuildId, GroupSize, MaxGroupSize, BotPrefix, Reaction, QueMsgRoom, "
-            + "PullMsgRoom, ModSettingsRoom, UserSettingsRoom, QueMsgId, PullMsgId, Role, CleanBot, PullMsgFormat) "
+            + "PullMsgRoom, ModSettingsRoom, UserSettingsRoom, QueMsgId, PullMsgId, Role, CleanBot, PullMsgFormat, FIFO) "
             + "VALUES(@GuildId, @GroupSize, @MaxGroupSize, @BotPrefix, @Reaction, @QueMsgRoom, @PullMsgRoom, @ModSettingsRoom, "
-            + "@UserSettingsRoom, @QueMsgId, @PullMsgId, @Role, @CleanBot, @PullMsgFormat);";
+            + "@UserSettingsRoom, @QueMsgId, @PullMsgId, @Role, @CleanBot, @PullMsgFormat, @FIFO);";
 
             var args = new Dictionary<string, object> {
                 { "@GuildId", GuildId },
@@ -55,33 +73,86 @@ namespace QBort.Core.Database
                 {"@PullMsgId", Convert.ToString(0)},
                 {"@Role", string.Empty},
                 {"@CleanBot", 0},
-                {"@PullMsgFormat", GroupListFormat.Plain.ToString()}
+                {"@PullMsgFormat", GroupListFormat.Plain.ToString()},
+                {"@FIFO", Convert.ToString(0)}
             };
 
             return Database.ExecuteWrite(query, args);
         }
+
+        #endregion
+        /// <summary>
+        /// Sets the banned status of a player to <paramref name="true" /> (or 1) for the guild.
+        /// <para>
+        /// This command BANS the player.
+        /// </para>
+        /// </summary>
+        /// <param name="GuildId">The guild whose passing judgement</param>
+        /// <param name="PlayerId">The player whose judgement is being passed.</param>
+        /// <param name="reason">The explaination behind the judgening.</param>
+        /// <returns>
+        /// 1 if judgement was swift, precise, and delicious.
+        /// Not 1 if judgement was vetoed by higher powers.
+        /// </returns>
         internal static int BanPlayer(ulong GuildId, ulong PlayerId, string reason)
         {
             string query = $"UPDATE Players SET IsBanned = 1, BanReason = '{reason}' WHERE GuildId = '{GuildId}' AND PlayerId = '{PlayerId}'";
             return Database.ExecuteWrite(query);
         }
+        /// <summary>
+        /// Sets the banned status of a player to <paramref name="false" /> (or 0) for the guild.
+        /// <para>
+        /// This command removes the ban that was placed on the player.
+        /// </para>
+        /// </summary>
+        /// <param name="GuildId">The guild whose passing judgement</param>
+        /// <param name="PlayerId">The player whose judgement is being passed.</param>
+        /// <param name="reason">The explaination behind the judgening.</param>
+        /// <returns>
+        /// 1 if judgement was swift, precise, and delicious.
+        /// Not 1 if judgement was vetoed by higher powers.
+        /// </returns>
         internal static int UnbanPlayer(ulong GuildId, ulong PlayerId)
         {
             string query = $"UPDATE Players SET IsBanned = 0 WHERE GuildId = '{GuildId}' AND PlayerId = '{PlayerId}'";
             return Database.ExecuteWrite(query);
         }
+        /// <summary>
+        /// Retrieves the count of active players in the guild.
+        /// </summary>
+        /// <param name="GuildId">The guild whose count to retrieve.</param>
+        /// <returns>The number of active players in the current queue.</returns>
         internal static int GetActivePlayerCount(ulong GuildId)
         {
             return Database.ExecuteRead($"SELECT * From Players WHERE GuildId = '{GuildId}' And IsActive = 1 And IsBanned = 0").Rows.Count;
         }
+        /// <summary>
+        /// Gets the active players in the guild with the ordering:
+        /// <para>
+        ///     PlayCount ASC,
+        ///     QuePos ASC
+        /// </para>
+        /// </summary>
+        /// <param name="GuildId"></param>
+        /// <returns>A <typeparamref name="DataTable" />-typed table containg all active and not-banned players. </returns>
         internal static DataTable GetActivePlayersList(ulong GuildId)
         {
-            return Database.ExecuteRead($"SELECT * From Players WHERE GuildId = '{GuildId}' And IsActive = 1 And IsBanned = 0 ORDER BY PlayCount ASC");
+            return Database.ExecuteRead($"SELECT * From Players WHERE GuildId = '{GuildId}' And IsActive = 1 And IsBanned = 0 ORDER BY PlayCount ASC, QuePos ASC");
         }
+        /// <summary>
+        /// Retrieves all the registered users for the guild.
+        /// </summary>
+        /// <param name="GuildId">The guild whose list to retrieve.</param>
+        /// <returns>A <typeparamref name="DataTable" />-typed table containg all players. </returns>
         internal static DataTable GetAllPlayersList(ulong GuildId)
         {
             return Database.ExecuteRead($"SELECT * From Players WHERE GuildId = '{GuildId}'");
         }
+        /// <summary>
+        /// Checks if the current is currently registered with the bot.
+        /// </summary>
+        /// <param name="GuildId">The guild whose existance is in question.</param>
+        /// <returns><paramref name="true" /> if the guild is registered with the bot or <paramref name="false" /> if the guild is not.</returns>
         internal static bool GuildExists(ulong GuildId)
         {
             var dt = Database.ExecuteRead("SELECT * From Players WHERE GuildId = " + GuildId);
@@ -133,6 +204,16 @@ namespace QBort.Core.Database
             var dt = Database.ExecuteRead("SELECT MaxGroupSize From GuildSettings WHERE GuildId = " + GuildId);
             var size = Convert.ToInt16(dt.Rows[0]["MaxGroupSize"]);
             return size;
+        }
+        /// <summary>
+        /// Gets the guild's pull method settings.
+        /// </summary>
+        /// <param name="GuildId">The guild whose existance is in question.</param>
+        /// <returns>0 if the setting is 'Random' or 1 if the setting is 'Ordered'.</returns>
+        internal static int GetPullMethod(ulong GuildId)
+        {
+            var dt = Database.ExecuteRead("SELECT FIFO From GuildSettings WHERE GuildId = " + GuildId);
+            return Convert.ToInt16(dt.Rows[0]["FIFO"]);
         }
         internal static bool GetLobbyStatus(ulong GuildId)
         {

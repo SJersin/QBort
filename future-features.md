@@ -11,6 +11,7 @@
   - Allow for players to quickly change their active status.
 - Auto-guild registration? Display something or another?
 - Setting to switch bot between random order fair pull (current default) and the old bot's traditional FIFO by reaction.
+- Update pull method settings to allow for fair random, true random, fair queue, or true queue.
 
 ### I need to do these first
 

@@ -3,22 +3,22 @@
  * in the Hi-Rez team based hero shooter game, Paladins Champions of the Realm.
  * Will manage a large group of users in a list style with
  * functions to pull however many players you need for the next game lobby.
- * 
+ *
  * Has been designed so that arguments can be passed to accomidate other games such as
  * Overwatch, CS:GO, Call of Duty, or pretty much any first person shooter game that
  * has custom matches that can be made private.
- * 
+ *
  * By: Jersin - 12 DEC 2020
  */
 
 using System;
+using System.IO;
+using System.Threading;
 using System.Threading.Tasks; //Run Async tasks
 using Discord;
 using Discord.Commands; //Discord command handler
 using Discord.WebSocket; //Discord Web connection
 using Microsoft.Extensions.DependencyInjection;
-using System.Threading;
-using System.IO;
 using QBort.Core.Database;
 using Serilog.Events;
 
@@ -28,7 +28,7 @@ namespace QBort
     {
         private readonly DiscordSocketClient _client;    // Socket Client for things
         private readonly CommandService _commands;       // Command Services
-        private readonly IServiceProvider _services;     // Interface Service Provider 
+        private readonly IServiceProvider _services;     // Interface Service Provider
 
         public Bot()
         {
@@ -59,23 +59,23 @@ namespace QBort
                 //--Initialize CommandManager
                 // CommandManager cmdManager = new CommandManager(Services);
                 // await cmdManager.InitializeAsync();
-    
+
                 //--Alternative, easier way to initialize CommandManager. Updated for async threading.
                 Task LoginTask = _client.LoginAsync(TokenType.Bot, Token.GetToken()),
                      CmdInitTask = new CommandHandler(_services).InitializeAsync(),
                      EventInitTask = new EventHandler(_services).InitializeAsync();
-                
-                Task[] StartingTasks = { CmdInitTask, EventInitTask,  LoginTask };
-                
+
+                Task[] StartingTasks = { CmdInitTask, EventInitTask, LoginTask };
+
                 _client.Log += Client_Log;
-    
+
                 Console.WriteLine("Checking Database...");
                 Database.CheckDatabase();
-    
+
                 Console.WriteLine($"{DateTime.Now} => [Default Prefix Key] : Set to [+].");
-                     
-                    foreach (var task in StartingTasks)
-                        await task;
+
+                foreach (var task in StartingTasks)
+                    await task;
                 await _client.StartAsync();
                 await Task.Delay(Timeout.Infinite); //Time for tasks to run. -1 is unlimited time. Timeout.Infinite has clearer intent.
             }
@@ -88,7 +88,7 @@ namespace QBort
         private Task Client_Log(LogMessage message)
         {
             //Consistancy is important I guess.
-#region Annoying repetative messages
+            #region Annoying repetative messages
             // Filter out annoying repetative messages.
             if (message.Message != "Received Dispatch (PRESENCE_UPDATE)")
                 if (message.Message != "Received Dispatch (TYPING_START)")
@@ -96,7 +96,7 @@ namespace QBort
                         if (message.Message != "Received HeartbeatAck")
                             if (message.Message != "Sent Heartbeat")
                                 Console.WriteLine($"{DateTime.Now} => [{message.Source}] : {message.Message}");
-#endregion
+            #endregion
             var severity = message.Severity switch
             {
                 LogSeverity.Critical => LogEventLevel.Fatal,
@@ -121,4 +121,3 @@ namespace QBort
         }
     }
 }
-

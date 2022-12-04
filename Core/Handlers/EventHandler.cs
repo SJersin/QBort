@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using QBort.Core.Database;
+using QBort.Core.Managers;
 
 namespace QBort
 {
@@ -101,6 +103,7 @@ namespace QBort
             // Get all relevant information
             try
             {
+                GuildSettings = new DataTable();
                 GuildSettings = Guild.GetGuildSettings(Context.Guild.Id);
             }
             catch (Exception e)
@@ -108,6 +111,7 @@ namespace QBort
                 Log.Error(Messages.FormatError(e));
                 return;
             }
+
             Message = await _message.GetOrDownloadAsync() as SocketUserMessage;
             Context = new SocketCommandContext(_client, Message);
             Channel = await channel.GetOrDownloadAsync();
@@ -129,6 +133,17 @@ namespace QBort
                             Player.AddPlayer(Context.Guild.Id, user.Id);
                         Player.EditPlayerData(Context.Guild.Id, user.Id, "Agreed", "1");
                         Player.EditPlayerData(Context.Guild.Id, user.Id, "IsActive", "1");
+
+                        int qpos = Player.GetQueuePosition(Context.Guild.Id, user.Id);
+                        if (qpos < 1)
+                        {
+                            int count = ActiveStats.Secretary.Where(g => g.GuildId == Context.Guild.Id)
+                                .FirstOrDefault().UserFIFOCounter + 1;
+                            Player.EditPlayerData(Context.Guild.Id, user.Id, "QuePos", Convert.ToString(count));
+                        }
+                        Console.WriteLine("COUNT COUNTER IS ::::::::::::::::::     ", Convert.ToString(ActiveStats.Secretary.Where(
+                            g => g.GuildId == Context.Guild.Id
+                            )));
                     }
                 }
                 catch (Exception e)

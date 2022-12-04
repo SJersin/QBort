@@ -96,5 +96,11 @@ namespace QBort.Core.Database
             string query = $"UPDATE GuildSettings SET CleanBot = '{set}' WHERE GuildId = {GuildId}";
             return Database.ExecuteWrite(query);
         }
+        internal static int SetPullMethod(ulong GuildId, string set)
+        {
+            string query = $"UPDATE GuildSettings SET FIFO = '{set}' WHERE GuildId = {GuildId}";
+            return Database.ExecuteWrite(query);
+        }
+
     }
 }

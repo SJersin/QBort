@@ -4,7 +4,7 @@
 
 
     Table Schema:
-      GuildSettings - 
+      GuildSettings -
         GuildId INTEGER,            Primary Key
         GroupSize INTEGER,          Default number of users to pull from active list.
         MaxGroupSize INTEGER,       Maximum number of users to pull from active list.
@@ -19,18 +19,18 @@
         Reaction VARCHAR(50),      Name of the role to give users when they react to the server terms message
         SubLv INTEGER               If I ever feel to incorporate subscription tiers. Capitalism, Ho!
 
-      Guilds - 
-        GuildId INTEGER,            Primary Key 
+      Guilds -
+        GuildId INTEGER,            Primary Key
         IsOpen INTEGER,             Boolean value for the status of the guilds queue. 0 for false (queue closed), 1 for true (queue open).
         GameName VARCHAR(50),       String value for the name of the game the queue will be hosting.
         GameMode VARCHAR(50)        String value for the name of the game mode the next pull will be using.
         RecallGroup VARCHAR(100)
 
-      Players - 
+      Players -
         GuildId INTEGER,            Primary Key
         PlayerId INTEGER,           Primary Key
         PlayCount INTEGER,          The number of games the user has played.
-        IsActive INTEGER,           Boolean value for the active status of the user.  
+        IsActive INTEGER,           Boolean value for the active status of the user.
         SpecialGames INTEGER,       Boolean value to indicate if the user want to participate in "special rules" games.
         IsBanned INTEGER,           Boolean value for the banned status of the user.
         BanReason VARCHAR(500),     Reason for the banning.
@@ -63,33 +63,34 @@ namespace QBort.Core.Database
             PlayCount = c;
         }
 
-#region  ********************** STATIC FUNCTIONS ***********************************
+        #region  ********************** STATIC FUNCTIONS ***********************************
         internal static int AddPlayer(ulong GuildId, ulong PlayerId)
 
         {
-            const string query = "INSERT INTO Players(GuildId, PlayerId, PlayCount, IsActive, SpecialGames, IsBanned, BanReason, Agreed) VALUES(@GuildId, @PlayerId, "
-                + "@PlayCount, @IsActive, @SpecialGames, @IsBanned, @BanReason, @Agreed)";
+            const string query = "INSERT INTO Players(GuildId, PlayerId, PlayCount, QuePos, IsActive, SpecialGames, IsBanned, BanReason, Agreed) VALUES(@GuildId, @PlayerId, "
+                + "@PlayCount, @QuePos, @IsActive, @SpecialGames, @IsBanned, @BanReason, @Agreed)";
 
-            //here we are setting the parameter values that will be actually 
+            //here we are setting the parameter values that will be actually
             //replaced in the query in Execute method
             var args = new Dictionary<string, object>
             {
-                // TODO Double check the default IsActive setting before Finalizing Release. 
+                // TODO Double check the default IsActive setting before Finalizing Release.
                 { "@GuildId", GuildId },
                 { "@PlayerId", PlayerId },
-                { "@PlayCount", 0 },
-                { "@IsActive", 0 },
-                { "@SpecialGames", 0 },
-                { "@IsBanned", 0 },
+                { "@PlayCount", Convert.ToString(0) },
+                { "@QuePos", Convert.ToString(0) },
+                { "@IsActive", Convert.ToString(0) },
+                { "@SpecialGames", Convert.ToString(0) },
+                { "@IsBanned", Convert.ToString(0) },
                 { "@BanReason", "Nothing yet." },
-                { "@Agreed", 0 }
+                { "@Agreed", Convert.ToString(0) }
             };
 
             return Database.ExecuteWrite(query, args);
         }
         internal static int ResetPlayStats(ulong GuildId, ulong PlayerId)
         {
-            string query = $"UPDATE Players SET IsActive = 0, PlayCount = 0 WHERE GuildId = {GuildId} AND PlayerId = {PlayerId}";
+            string query = $"UPDATE Players SET IsActive = 0, QuePos = 0, PlayCount = 0 WHERE GuildId = {GuildId} AND PlayerId = {PlayerId}";
             return Database.ExecuteWrite(query);
         }
         internal static int DecreasePlayCount(ulong GuildId, ulong PlayerId)
@@ -142,16 +143,33 @@ namespace QBort.Core.Database
         {
             string query = $"SELECT PlayCount FROM Players WHERE PlayerId = {PlayerId} AND GuildId = {GuildId}";
             var dt = Database.ExecuteRead(query);
-            try {
+            try
+            {
                 return Convert.ToUInt16(dt.Rows[0]["PlayCount"]);
-            } catch (Exception e) {
+            }
+            catch (Exception e)
+            {
                 Log.Error(Messages.FormatError(e));
                 return 0;
             }
         }
+        internal static int GetQueuePosition(ulong GuildId, ulong PlayerId)
+        {
+            string query = $"SELECT QuePos FROM Players WHERE PlayerId = {PlayerId} AND GuildId = {GuildId}";
+            var dt = Database.ExecuteRead(query);
+            try
+            {
+                return Convert.ToUInt16(dt.Rows[0]["QuePos"]);
+            }
+            catch (Exception e)
+            {
+                Log.Error(Messages.FormatError(e));
+                return -1;
+            }
+        }
         internal static DataTable GetPlayerData(ulong GuildId, ulong PlayerId)
         {
-            string query = $"SELECT * FROM Players WHERE PlayerId = {PlayerId} AND GuildId = {GuildId}";
+            string query = $"SELECT * FROM Players WHERE PlayerId = '{PlayerId}' AND GuildId = '{GuildId}'";
             try
             {
                 return Database.ExecuteRead(query);
@@ -159,11 +177,11 @@ namespace QBort.Core.Database
             catch (Exception e)
             {
                 Log.Error(
-                    string.Concat("Guild: [", GuildId, 
-                            "] | Player: [", PlayerId, 
+                    string.Concat("Guild: [", GuildId,
+                            "] | Player: [", PlayerId,
                             "]\n", Messages.FormatError(e))
                     );
-                    return null;
+                return null;
             }
         }
         internal static int IncreasePlayCount(ulong GuildId, ulong PlayerId)
@@ -181,14 +199,15 @@ namespace QBort.Core.Database
             if (dt is null || dt.Rows.Count == 0) return -1;
 
             int value = Convert.ToUInt16(dt.Rows[0]["IsActive"]);
-            if (value != 0) value = 0; else value = 1;
-            query = $"UPDATE Players SET IsActive = {value} WHERE PlayerId = {PlayerId} AND GuildId = {GuildId}";
+
+            value = value != 0 ? 0 : 1;
+            query = $"UPDATE Players SET IsActive = '{value}' WHERE PlayerId = '{PlayerId}' AND GuildId = '{GuildId}'";
             return Database.ExecuteWrite(query);
         }
         internal static DataTable GetConfirmedPlayers(ulong GuildId)
         {
             return Database.ExecuteRead("SELECT * FROM Players WHERE GuildId = " + GuildId + " WHERE Agreed = 1");
         }
-#endregion
+        #endregion
     }
 }

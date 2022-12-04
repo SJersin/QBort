@@ -7,6 +7,7 @@ using Discord;
 using Discord.Commands;
 using Discord.WebSocket;
 using QBort.Core.Database;
+using QBort.Core.Managers;
 using QBort.Enums;
 
 
@@ -32,7 +33,7 @@ namespace QBort.Core.Commands
         public async Task OpenQueue(IRole role, [Remainder] string message = "")
         {
             GuildId = Context.Guild.Id;
-            _ = Context.Channel.TriggerTypingAsync();
+            var TypingTask = Context.Channel.TriggerTypingAsync();
             try
             {
                 if (Context.Channel.Id != Guild.GetQueueMessageRoom(Context.Guild.Id))
@@ -49,6 +50,11 @@ namespace QBort.Core.Commands
                     await Context.Channel.SendMessageAsync("Unable to open server queue.");
                     return;
                 }
+
+                if (!ActiveStats.Secretary.Exists(g => g.GuildId == GuildId))
+                    ActiveStats.Secretary.Add(new ActiveStats(GuildId));
+
+                ActiveStats.Secretary.Where(g => g.GuildId == GuildId).FirstOrDefault().UserFIFOCounter = 0;
 
                 // Create message with reaction for queue
                 _embed = new EmbedBuilder()
@@ -95,6 +101,7 @@ namespace QBort.Core.Commands
                 Log.Error(Messages.FormatError(e));
                 await Context.Channel.SendMessageAsync("Queue did not open properly.");
             }
+            await TypingTask;
         }
 
         [Command("close")]
@@ -125,10 +132,10 @@ namespace QBort.Core.Commands
                     var SendEmbedTask =
                         Context.Channel.SendMessageAsync(embed: _embed.Build());
 
-                    using (var player = Guild.GetAllPlayersList(GuildId))
-                        foreach (DataRow i in player.Rows)
-                            if (Player.ResetPlayStats(GuildId, Convert.ToUInt64(i["PlayerId"])) != 1)
-                                problems.Add(string.Concat("Player Id: ", i["PlayerId"].ToString(), "\nCould not reset player stats."));
+                    using (var players = Guild.GetAllPlayersList(GuildId))
+                        foreach (DataRow player in players.Rows)
+                            if (Player.ResetPlayStats(GuildId, Convert.ToUInt64(player["PlayerId"])) != 1)
+                                problems.Add(string.Concat("Player Id: ", player["PlayerId"].ToString(), "\nCould not reset player stats."));
 
                     Guild.ClearPlayCounts(GuildId);
                     if (problems.Count > 0)
@@ -139,6 +146,7 @@ namespace QBort.Core.Commands
                         Log.Warning(ohno);
                     }
                     Guild.SetPullMessageId(GuildId, 0);
+                    Guild.SetQueueMessageId(GuildId, "0"); // half asleep, don't care.
                     try
                     {
                         foreach (var item in _deletemetasks)
@@ -300,13 +308,13 @@ namespace QBort.Core.Commands
 
                 }
 
-            List<Task<IUserMessage>> DMs = new(); // using var or new() is acceptable here, I just didn't want to. EDIT: The formatted wanted to.
+            List<Task<IUserMessage>> DMs = new(); // using var or new() is acceptable here, I just didn't want to. EDIT: The formatted wanted to. *formatter. It does not include a dictionary.
             try
             {
                 ulong x;
                 while (GroupSize > 0)
                 {
-                    // If the count of the list of players with the lowest play count, just throw them all in.
+                    // If the list of players with the lowest play count is less than our group size, just throw them all in.
                     if (PlayerList.FindAll(p => p.PlayCount == PlayerList[0].PlayCount).Count <= GroupSize)
                     {
                         foreach (var player in PlayerList.FindAll(p => p.PlayCount == PlayerList[0].PlayCount))
@@ -317,14 +325,23 @@ namespace QBort.Core.Commands
                         foreach (var user in recall)
                             PlayerList.Remove(PlayerList.Find(p => p.PlayerId == user));
                     }
-                    else
+                    else // TODO Add the switch logic for GuildSettings PullType to use orderby or random.
                     {
-                        index = random.Next(0, PlayerList.FindAll(p => p.PlayCount == PlayerList[0].PlayCount).Count);
-                        x = PlayerList[index].PlayerId;
+                        int ptype = Guild.GetPullMethod(Context.Guild.Id);
+                        if (ptype == 0)
+                        {
+                            index = random.Next(0, PlayerList.FindAll(p => p.PlayCount == PlayerList[0].PlayCount).Count);
+                            x = PlayerList[index].PlayerId;
 
-                        if (!recall.Contains(x))
-                            recall.Add(x);
-                        PlayerList.Remove(PlayerList.Find(p => p.PlayerId == x));
+                            if (!recall.Contains(x))
+                                recall.Add(x);
+                            PlayerList.Remove(PlayerList.Find(p => p.PlayerId == x));
+                        }
+                        else if (ptype == 1)
+                        {
+                            recall.Add(PlayerList[0].PlayerId);
+                            PlayerList.Remove(PlayerList[0]);
+                        }
                         GroupSize--;
                     }
                 }
@@ -358,12 +375,6 @@ namespace QBort.Core.Commands
                 GroupListFormat format;
                 var listform = Guild.GetPullMessageFormat(Context.Guild.Id);
                 format = (GroupListFormat)Enum.Parse(typeof(GroupListFormat), listform ?? "Plain");
-                // if (string.Equals(listform, GroupListFormat.SingleColumn))
-                //     format = GroupListFormat.SingleColumn;
-                // else if (string.Equals(listform, GroupListFormat.DoubleColumn))
-                //     format = GroupListFormat.DoubleColumn;
-                // else
-                //     format = GroupListFormat.Plain;
 
                 foreach (var _fields in Messages.PlayerGroupList(format, list))
                     _embed.AddField(_fields);
@@ -561,7 +572,7 @@ namespace QBort.Core.Commands
         [Summary(": Replaces a player in the current group with a specifc player.\nExample: `swap @jersin @sum1btr`\nwill remove jersin and replace them with sum1btr.")]
         public async Task SwapPlayer([Remainder] string mentionedUsers = "")
         {
-            if (mentionedUsers == "")
+            if (mentionedUsers == "" || Context.Message.MentionedUsers.Count == 0)
             { await Context.Channel.SendMessageAsync("Done."); return; }
 
             var Players = Context.Message.MentionedUsers;
@@ -607,7 +618,7 @@ namespace QBort.Core.Commands
                 else
                 {
                     await Context.Channel.SendMessageAsync(embed: new EmbedBuilder()
-                        .WithTitle("Swap command..?").WithDescription("You're *not* in, but like... trade seats... or something?")
+                        .WithTitle("Swap command..?").WithDescription("Ok... so like... You're *not* in, but like... trade seats... or something?")
                         .WithFooter(string.Concat("Blame: ", Context.User.Username), ", ok?").Build());
                     return;
                 }
@@ -616,10 +627,10 @@ namespace QBort.Core.Commands
                     _embed = new EmbedBuilder()
                           .WithTitle($"**{Context.User.Username}** Roster Rotation!")
                           .WithDescription("Pay attention to the changes listed!!");
-                    _field = new EmbedFieldBuilder().WithName("Players sitting out:")
+                    _field = new EmbedFieldBuilder().WithName("Player sitting out:")
                           .WithValue(string.IsNullOrEmpty(sitting_out) ? "No one it seems..." : sitting_out);
                     _embed.AddField(_field);
-                    _field = new EmbedFieldBuilder().WithName("Players now in the play group:")
+                    _field = new EmbedFieldBuilder().WithName("Player now in the play group:")
                           .WithValue(string.IsNullOrEmpty(filling_in) ? "No one it seems..." : filling_in);
                     _embed.AddField(_field);
 

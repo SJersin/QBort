@@ -8,6 +8,7 @@ namespace QBort.Core.Structures
     {
         public ulong ID { get; private set; } = 0;
         public string Name { get; set; } = string.Empty;
+        public int QuePos { get; private set; } = 0;
         public int GameCount { get; private set; } = -1;
         public bool? IsBanned { get; private set; } = null;
         public string Notes { get; private set; } = string.Empty;
@@ -26,6 +27,8 @@ namespace QBort.Core.Structures
                 valuetest = "bancheck";
                 IsBanned =
                     Convert.ToInt16(_player.Rows[0]["IsBanned"]) > 0;
+                // valuetest = "QuePos";
+                // QuePos = Convert.ToInt16(_player.Rows[0]["QuePos"]);
             }
             catch (ArgumentNullException e)
             {

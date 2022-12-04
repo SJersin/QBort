@@ -35,7 +35,10 @@
         Agreed INTEGER              Boolean value for the agrement
 */
 
-
+//TODO Create FIFO setting in guild table.
+//TODO Create QueNum field in Players table.
+//TODO Create setting checks in New command.
+//TODO Other things.
 namespace QBort.Core.Database
 {
     internal class Tables
@@ -67,7 +70,7 @@ namespace QBort.Core.Database
         {
             // Sanitize Strings
             // TODO Learn sanitization practices/techniques
-            string tquery = "CREATE TABLE Players(GuildId INTEGER, PlayerId INTEGER, PlayCount INTEGER"
+            string tquery = "CREATE TABLE Players(GuildId INTEGER, PlayerId INTEGER, PlayCount INTEGER, QuePos INTEGER"
                 + ", IsActive INTEGER, SpecialGames INTEGER, IsBanned INTEGER, BanReason VARCHAR(500), Agreed INTEGER)";
 
             int value = Database.ExecuteWrite(tquery);
@@ -86,7 +89,8 @@ namespace QBort.Core.Database
         internal static void CreateGuildSettingsTable()
         {
             string tquery = "CREATE TABLE GuildSettings(GuildId INTEGER, GroupSize INTEGER, MaxGroupSize INTEGER, BotPrefix VARCHAR(5), Reaction VARCHAR(50), QueMsgRoom INTEGER, "
-            + "PullMsgRoom INTEGER, ModSettingsRoom INTEGER, UserSettingsRoom INTEGER, QueMsgId INTEGER, PullMsgId INTEGER, Role VARCHAR(20), CleanBot INTEGER, PullMsgFormat VARCHAR[30])";
+            + "PullMsgRoom INTEGER, ModSettingsRoom INTEGER, UserSettingsRoom INTEGER, QueMsgId INTEGER, PullMsgId INTEGER, Role VARCHAR(20), CleanBot INTEGER, PullMsgFormat VARCHAR[30], "
+            + "FIFO INTEGER)";
 
             int value = Database.ExecuteWrite(tquery);
             if (value != 1)

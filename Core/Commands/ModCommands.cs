@@ -100,21 +100,18 @@ namespace QBort.Core.Commands
 
         // TODO Use an embed to display gp+ and gp- results instead of a regular message. Because.
         [Command("gp+")]
-        [Summary(": Adds one to the games played counter of provided user\nAccepts either @mentions or User IDs.")]
+        [Summary(": Adds one to the games played counter of all mentioned users.\nEx. `gp+ @jersin @miqote`")]
         [RequireUserPermission(GuildPermission.ManageChannels)]
         public async Task IncreasePlayCount([Remainder] string userID)
         {
-            _embed = new EmbedBuilder()
+            if (!Guild.GetLobbyStatus(Context.Guild.Id))
+            { await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return; }
+            try
+            {
+                _embed = new EmbedBuilder()
                         .WithTitle("Increase Game Count")
                         .WithDescription("Adding one count of game play.")
                         .WithColor(Color.DarkTeal);
-            if (!Guild.GetLobbyStatus(Context.Guild.Id))
-            {
-                await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build());
-                return;
-            }
-            try
-            {
                 _ = Context.Channel.TriggerTypingAsync();
                 bool group = false;
                 int result;
@@ -179,7 +176,7 @@ namespace QBort.Core.Commands
         }
 
         [Command("gp-")]
-        [Summary(": Subtracts one from the games played counter of provided user\nAccepts either @mentions or User IDs.")]
+        [Summary(": Subtracts one from the games played counter of all mentioned users.\nEx. `gp- @jersin @miqote`")]
         [RequireUserPermission(GuildPermission.ManageChannels)]
         public async Task DecreasePlayCount([Remainder] string userID)
         {
@@ -260,16 +257,16 @@ namespace QBort.Core.Commands
 
 
         //       [Command("inactive")]
-        [Summary(": Sets the mentioned player from the currently active queue to inactive. The player will be able to become active again by reacting to the queue message again.")]
-        [RequireUserPermission(GuildPermission.ManageChannels)]
-        public async Task SetPlayerInactive([Remainder] string player)
-        {
-            _embed = new EmbedBuilder();
-            if (!Guild.GetLobbyStatus(Context.Guild.Id))
-            { await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return; }
+        // [Summary(": Sets the mentioned player from the currently active queue to inactive. The player will be able to become active again by reacting to the queue message again.")]
+        // [RequireUserPermission(GuildPermission.ManageChannels)]
+        // public async Task SetPlayerInactive([Remainder] string player)
+        // {
+        //      _embed = new EmbedBuilder();
+        //      if (!Guild.GetLobbyStatus(Context.Guild.Id))
+        //      { await Context.Channel.SendMessageAsync(embed: Messages.LobbyIsClosed.Build()); return; }
 
-            _user = Context.Guild.GetUser(Context.Message.MentionedUsers.FirstOrDefault().Id);
-        }
+        //      _user = Context.Guild.GetUser(Context.Message.MentionedUsers.FirstOrDefault().Id);
+        // }
 
         //        [Command("admin")]
         [Summary(": CLI style argument passing for settings.")]
